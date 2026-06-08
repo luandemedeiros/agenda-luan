@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Agenda Semanal Luan PL2042</title>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Sora:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 
@@ -292,9 +293,140 @@
   .log-tag.plano { background: var(--red-dim); color: var(--c-leilao); }
   .log-tag.luan { background: var(--gold-dim); color: var(--gold); }
 
-  /* ════════ NOTES ════════ */
+  /* ════════ SPLIT LAYOUT (agenda | notas lateral) ════════ */
+  /* app-scroll permanece como era — apenas scroll vertical */
+  .app-scroll {
+    height: calc(100vh - 132px);
+    overflow: hidden; /* o scroll é delegado para main-col e side-notes-panel */
+    position: relative;
+    display: flex;
+    flex-direction: row;
+  }
+  .app-scroll::-webkit-scrollbar { width: 9px; }
+  .app-scroll::-webkit-scrollbar-thumb { background: var(--gray-mid); border-radius: 4px; }
+
+  /* Coluna principal: ocupa todo espaço disponível, tem scroll próprio */
+  .main-col {
+    flex: 1 1 auto;
+    min-width: 0;
+    height: 100%;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+  .main-col::-webkit-scrollbar { width: 9px; }
+  .main-col::-webkit-scrollbar-thumb { background: var(--gray-mid); border-radius: 4px; }
+
+  /* Divisória arrastável — sempre no DOM, visibilidade controlada */
+  .split-divider {
+    flex: 0 0 7px;
+    min-width: 7px;
+    cursor: ew-resize;
+    background: transparent;
+    position: relative;
+    z-index: 20;
+    display: none;
+  }
+  .split-divider.visible { display: flex; align-items: stretch; }
+  .split-divider::after {
+    content: '';
+    position: absolute;
+    top: 0; bottom: 0;
+    left: 3px; width: 1px;
+    background: var(--border);
+    transition: background 0.15s, width 0.15s, left 0.15s;
+  }
+  .split-divider:hover::after,
+  .split-divider.active::after {
+    background: var(--gold); width: 2px; left: 2.5px;
+  }
+
+  /* Painel lateral de notas */
+  .side-notes-panel {
+    flex: 0 0 320px;   /* largura default, sobrescrita por JS */
+    width: 320px;
+    min-width: 180px;
+    max-width: 55vw;
+    height: 100%;
+    overflow-y: auto;
+    overflow-x: hidden;
+    background: var(--black);
+    border-left: 1px solid var(--border);
+    display: none;
+    flex-direction: column;
+    padding: 12px 12px 40px;
+    gap: 10px;
+  }
+  .side-notes-panel::-webkit-scrollbar { width: 7px; }
+  .side-notes-panel::-webkit-scrollbar-thumb { background: var(--gray-mid); border-radius: 4px; }
+  .side-notes-panel.visible { display: flex; }
+
+  /* Cabeçalho do painel lateral */
+  .side-notes-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding-bottom: 8px; border-bottom: 1px solid var(--border); margin-bottom: 4px;
+    flex-shrink: 0;
+  }
+  .side-notes-title {
+    font-family: 'Bebas Neue', sans-serif; font-size: 16px;
+    letter-spacing: 0.08em; color: var(--gold);
+  }
+  .btn-close-side {
+    background: transparent; border: none; color: var(--gray-light);
+    font-size: 18px; cursor: pointer; padding: 2px 6px; border-radius: 3px;
+    transition: color 0.15s;
+  }
+  .btn-close-side:hover { color: var(--white); }
+
+  /* Botão abrir painel lateral */
+  .btn-side-notes {
+    font-family: 'Sora', sans-serif; font-size: 10px; font-weight: 500;
+    letter-spacing: 0.07em; text-transform: uppercase;
+    color: var(--gray-light); background: transparent;
+    border: 1px solid rgba(255,255,255,0.12); border-radius: 3px;
+    padding: 5px 10px; cursor: pointer; transition: all 0.2s;
+  }
+  .btn-side-notes:hover { color: var(--gold); border-color: rgba(201,168,76,0.4); }
+  .btn-side-notes.active { color: var(--gold); border-color: rgba(201,168,76,0.5); background: var(--gold-dim); }
+
+  /* ════════ NOTES — base ════════ */
   .notes-wrap { padding: 0 16px 40px; }
-  .notes-card { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 16px; }
+
+  /* Card de nota — base, usado tanto no wrap quanto no painel lateral */
+  .notes-card {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
+    padding: 16px; position: relative; /* para o drag-handle */
+  }
+
+  /* Versão compacta no painel lateral */
+  .side-notes-panel .notes-card { padding: 12px; }
+  .side-notes-panel .notes-area { font-size: 13px; min-height: 120px; }
+
+  /* ── Handle de drag das notas ── */
+  .note-drag-handle {
+    position: absolute; top: 10px; left: 10px;
+    width: 18px; height: 18px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; color: rgba(255,255,255,0.18);
+    cursor: grab; border-radius: 3px;
+    transition: color 0.15s, background 0.15s;
+    user-select: none; z-index: 5;
+  }
+  .note-drag-handle:hover { color: var(--gold); background: rgba(201,168,76,0.1); }
+  .note-drag-handle:active { cursor: grabbing; }
+  .notes-card .notes-daybar { padding-left: 22px; } /* espaço para o handle */
+
+  /* Ghost placeholder para drag de notas */
+  .note-ghost {
+    background: rgba(201,168,76,0.05);
+    border: 2px dashed rgba(201,168,76,0.25);
+    border-radius: 8px; pointer-events: none;
+  }
+
+  /* Bloco arrastável ativo */
+  .notes-card.note-dragging {
+    opacity: 0;
+  }
+
   .notes-daybar { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
   .notes-daybar .nd-label { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--gray-light); }
   .notes-daybar select {
@@ -376,6 +508,14 @@
   .toast { position: fixed; bottom: 86px; left: 50%; transform: translateX(-50%) translateY(20px); background: var(--panel2); border: 1px solid var(--gold); color: var(--white); padding: 11px 18px; border-radius: 6px; font-size: 13px; z-index: 200; opacity: 0; pointer-events: none; transition: all 0.3s; }
   .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
+  /* ── NOW LINE ── */
+  .now-line { position: absolute; left: 56px; right: 0; height: 2px; background: rgba(192,57,43,0.8); z-index: 10; pointer-events: none; }
+  .now-line::before { content: ''; position: absolute; left: -6px; top: -5px; width: 10px; height: 10px; border-radius: 50%; background: #c0392b; }
+
+  /* ── OBS POPUP ── */
+  .ev-obs-icon { display: inline-block; width: 13px; height: 13px; line-height: 13px; border-radius: 50%; background: rgba(255,255,255,0.12); font-size: 8px; text-align: center; color: var(--gold); cursor: help; flex-shrink: 0; margin-left: 3px; vertical-align: middle; }
+  .obs-popup { position: fixed; z-index: 80; max-width: 220px; background: #191919; border: 1px solid rgba(201,168,76,0.35); border-radius: 6px; padding: 9px 12px; font-size: 11.5px; line-height: 1.55; color: #bbb; pointer-events: none; box-shadow: 0 6px 20px rgba(0,0,0,.55); white-space: pre-wrap; word-break: break-word; }
+
   @media (max-width: 820px) {
     .card.span4, .card.span6, .card.span8 { grid-column: span 12; }
     .plano-metrics { grid-template-columns: repeat(2, 1fr); gap: 16px; }
@@ -391,6 +531,208 @@
     .mc-pill { font-size: 8.5px; }
     .seg button { padding: 7px 10px; }
   }
+
+  /* ════════ DASHBOARD GRID CUSTOMIZADO ════════ */
+  /* Container do dashboard: usa CSS Grid de 12 colunas */
+  .dash {
+    padding: 0 16px;
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    gap: 12px;
+    align-items: start;
+  }
+
+  /* ── CARD BASE (mantido do original + adições) ── */
+  /* .card já existe acima; aqui só adicionamos o que o grid precisa */
+  .dash-card-wrap {
+    position: relative;
+    min-height: 80px;
+  }
+
+  /* Alça de drag: ícone ⠿ no canto superior esquerdo */
+  .drag-handle {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    color: rgba(255,255,255,0.2);
+    cursor: grab;
+    z-index: 10;
+    border-radius: 3px;
+    transition: color 0.15s, background 0.15s;
+    user-select: none;
+    line-height: 1;
+  }
+  .drag-handle:hover {
+    color: var(--gold);
+    background: rgba(201,168,76,0.1);
+  }
+  .drag-handle:active { cursor: grabbing; }
+
+  /* Ajusta padding do card interno para não sobrepor a alça */
+  .dash-card-wrap .card {
+    padding-left: 32px;
+  }
+
+  /* Alça de resize horizontal: borda direita clicável */
+  .resize-h-handle {
+    position: absolute;
+    top: 0; right: -5px; bottom: 0;
+    width: 10px;
+    cursor: ew-resize;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .resize-h-handle::after {
+    content: '';
+    display: block;
+    width: 3px;
+    height: 32px;
+    border-radius: 2px;
+    background: rgba(255,255,255,0.12);
+    transition: background 0.15s;
+  }
+  .resize-h-handle:hover::after { background: var(--gold); }
+
+  /* Alça de resize vertical: borda inferior */
+  .resize-v-handle {
+    position: absolute;
+    left: 24px; right: 24px; bottom: -5px;
+    height: 10px;
+    cursor: ns-resize;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .resize-v-handle::after {
+    content: '';
+    display: block;
+    height: 3px;
+    width: 48px;
+    border-radius: 2px;
+    background: rgba(255,255,255,0.12);
+    transition: background 0.15s;
+  }
+  .resize-v-handle:hover::after { background: var(--gold); }
+
+  /* Alça diagonal: canto inferior direito */
+  .resize-d-handle {
+    position: absolute;
+    right: -2px; bottom: -2px;
+    width: 16px; height: 16px;
+    cursor: nwse-resize;
+    z-index: 11;
+  }
+  .resize-d-handle::after {
+    content: '';
+    position: absolute;
+    right: 3px; bottom: 3px;
+    width: 8px; height: 8px;
+    border-right: 2px solid rgba(255,255,255,0.2);
+    border-bottom: 2px solid rgba(255,255,255,0.2);
+    border-radius: 0 0 2px 0;
+    transition: border-color 0.15s;
+  }
+  .resize-d-handle:hover::after { border-color: var(--gold); }
+
+  /* Card sendo arrastado */
+  .dash-card-wrap.dragging {
+    opacity: 0.85;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.7);
+    z-index: 100;
+    pointer-events: none;
+    transition: none !important;
+  }
+
+  /* Drop zone: highlight quando um card passa por cima */
+  .dash-card-wrap.drop-target {
+    outline: 2px dashed rgba(201,168,76,0.5);
+    outline-offset: 2px;
+  }
+
+  /* Coluna padrão de cada card */
+  .dash-card-wrap[data-cols="12"] { grid-column: span 12; }
+  .dash-card-wrap[data-cols="8"]  { grid-column: span 8; }
+  .dash-card-wrap[data-cols="6"]  { grid-column: span 6; }
+  .dash-card-wrap[data-cols="4"]  { grid-column: span 4; }
+  .dash-card-wrap[data-cols="3"]  { grid-column: span 3; }
+
+  /* Botão resetar layout */
+  .dash-controls {
+    display: flex; justify-content: flex-end;
+    padding: 0 16px 6px; gap: 8px;
+  }
+  .btn-reset-layout {
+    font-family: 'Sora', sans-serif; font-size: 10px; font-weight: 500;
+    letter-spacing: 0.07em; text-transform: uppercase; color: var(--gray-light);
+    background: transparent; border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 3px; padding: 5px 10px; cursor: pointer; transition: all 0.2s;
+  }
+  .btn-reset-layout:hover { color: var(--gold); border-color: rgba(201,168,76,0.4); }
+
+  /* Ghost placeholder durante drag */
+  .drag-ghost {
+    background: rgba(201,168,76,0.06);
+    border: 2px dashed rgba(201,168,76,0.3);
+    border-radius: 8px;
+    pointer-events: none;
+  }
+
+  /* Mobile: tudo span 12 */
+  @media (max-width: 600px) {
+    .dash-card-wrap { grid-column: span 12 !important; }
+    .drag-handle, .resize-h-handle { display: none; }
+  }
+
+  /* ════════ BARRAS DUPLAS PLANEJADO/EXECUTADO ════════ */
+  .ebar-dual { margin-bottom: 14px; }
+  .ebar-dual:last-child { margin-bottom: 0; }
+  .ebar-dual-top { display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 5px; align-items: baseline; }
+  .ebar-dual-top .en { color: #ccc; letter-spacing: 0.03em; }
+  .ebar-dual-stats { font-size: 9.5px; color: var(--gray-light); font-variant-numeric: tabular-nums; }
+  .ebar-dual-stats .stat-plan { color: var(--gold); }
+  .ebar-dual-stats .stat-exec { color: var(--c-energia); }
+  .ebar-dual-stats .stat-sep { opacity: 0.4; margin: 0 3px; }
+
+  .ebar-row { display: flex; align-items: center; gap: 6px; margin-bottom: 3px; }
+  .ebar-row-label { font-size: 9px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--gray-light); width: 62px; flex-shrink: 0; text-align: right; }
+  .ebar-row-label.plan { color: rgba(201,168,76,0.7); }
+  .ebar-row-label.exec { color: rgba(54,168,102,0.8); }
+  .ebar-track-dual { flex: 1; height: 7px; border-radius: 4px; background: rgba(255,255,255,0.05); overflow: hidden; }
+  .ebar-track-dual i { display: block; height: 100%; border-radius: 4px; transition: width 0.7s ease; }
+  .ebar-track-dual i.plan-bar { background: linear-gradient(90deg, var(--gold), rgba(201,168,76,0.7)); }
+  .ebar-track-dual i.exec-bar { background: linear-gradient(90deg, var(--c-energia), rgba(54,168,102,0.7)); }
+  .ebar-pct-tag { font-size: 9px; font-variant-numeric: tabular-nums; color: var(--gray-light); width: 36px; text-align: right; flex-shrink: 0; }
+
+  /* Botão travar/destravar planejamento */
+  .btn-lock-plan {
+    font-family: 'Sora', sans-serif; font-size: 10px; font-weight: 600;
+    letter-spacing: 0.08em; text-transform: uppercase;
+    border-radius: 4px; padding: 7px 13px; cursor: pointer; transition: all 0.2s;
+    border: 1px solid rgba(201,168,76,0.5); color: var(--gold); background: transparent;
+    margin-bottom: 12px; display: inline-block;
+  }
+  .btn-lock-plan:hover { background: var(--gold-dim); }
+  /* Estado travado: mostra em verde, hover sugere destravamento */
+  .btn-lock-plan.locked {
+    border-color: rgba(54,168,102,0.5); color: var(--c-energia);
+  }
+  .btn-lock-plan.locked:hover {
+    background: rgba(54,168,102,0.1); border-color: rgba(54,168,102,0.8);
+  }
+  .snap-notice {
+    font-size: 10px; color: var(--gray-light); margin-bottom: 10px;
+    padding: 6px 10px; background: rgba(201,168,76,0.06); border-radius: 4px;
+    border-left: 2px solid rgba(201,168,76,0.4); line-height: 1.5;
+  }
 </style>
 </head>
 <body>
@@ -401,6 +743,7 @@
     </div>
     <div class="topbar-actions">
       <button class="btn sm" id="helpBtn" title="Atalhos: clique seleciona · duplo clique edita · botão direito abre menu · Ctrl+C copia · Ctrl+V cola · Ctrl+Z desfaz · Delete exclui">⌨</button>
+      <button class="btn-side-notes" id="sideNotesBtn" title="Abrir painel lateral de notas ao lado da agenda">Notas ▸</button>
       <button class="btn sm" id="importBtn">Importar</button>
       <button class="btn sm" id="exportDataBtn">Backup</button>
       <button class="btn sm primary" id="mdBtn">Resumo .md</button>
@@ -424,6 +767,7 @@
   <div class="legend" id="legend"></div>
 
   <div class="app-scroll" id="appScroll">
+    <div class="main-col" id="mainCol">
 
     <!-- CALENDAR (day/week) -->
     <div class="grid-wrap" id="gridWrap">
@@ -445,12 +789,16 @@
 
     <!-- DASHBOARD -->
     <div class="section-divider"><h2>Painel da Semana</h2></div>
+    <div class="dash-controls">
+      <button class="btn-reset-layout" id="resetLayoutBtn" title="Restaurar layout padrão dos cards">↺ Resetar layout</button>
+    </div>
     <div class="dash" id="dash"></div>
 
-    <!-- NOTES -->
-    <div class="section-divider"><h2>Bloco de Notas</h2></div>
-    <div class="notes-wrap">
-      <div class="notes-card" id="principiosCard" style="margin-bottom:14px;">
+    <!-- NOTES (coluna principal) -->
+    <div class="section-divider" id="notesMainDivider"><h2>Bloco de Notas</h2></div>
+    <div class="notes-wrap" id="notesMainWrap">
+      <div class="notes-card" id="principiosCard" data-note-id="principios" style="margin-bottom:14px;">
+        <div class="note-drag-handle" title="Arrastar bloco">⠿</div>
         <div class="notes-daybar">
           <span class="nd-label" style="color:var(--gold);">★ Princípios — sempre visíveis</span>
           <span class="notes-status" id="princStatus"></span>
@@ -458,7 +806,8 @@
         <textarea class="notes-area" id="principiosArea" placeholder="Insights e lembretes que não podem ser esquecidos. Este bloco persiste em todas as semanas." style="min-height:120px;"></textarea>
       </div>
 
-      <div class="notes-card">
+      <div class="notes-card" id="weekNotesCard" data-note-id="weekNotes" style="margin-bottom:14px;">
+        <div class="note-drag-handle" title="Arrastar bloco">⠿</div>
         <div class="notes-daybar">
           <span class="nd-label" id="weekNotesLabel">Notas da Semana</span>
           <span class="notes-status" id="noteStatus"></span>
@@ -473,6 +822,29 @@
         </div>
         <textarea class="notes-area" id="notesArea" placeholder="Escreva ou use o microfone… Um bloco por semana, salva sozinho."></textarea>
       </div>
+
+      <div class="notes-card" id="aprendCard" data-note-id="aprendizados">
+        <div class="note-drag-handle" title="Arrastar bloco">⠿</div>
+        <div class="notes-daybar">
+          <span class="nd-label" id="aprendLabel">🎯 Aprendizados da Semana</span>
+          <span class="notes-status" id="aprendStatus"></span>
+        </div>
+        <textarea class="notes-area" id="aprendArea" placeholder="O que aprendi? Que padrão identifiquei? O que farei diferente na próxima semana?"></textarea>
+      </div>
+    </div>
+
+    </div><!-- /main-col -->
+
+    <!-- Divisória arrastável -->
+    <div class="split-divider" id="splitDivider"></div>
+
+    <!-- Painel lateral de notas -->
+    <div class="side-notes-panel" id="sideNotesPanel">
+      <div class="side-notes-header">
+        <span class="side-notes-title">NOTAS</span>
+        <button class="btn-close-side" id="closeSideBtn" title="Fechar painel lateral">✕</button>
+      </div>
+      <!-- Os cards de nota serão movidos/clonados aqui pelo JS quando o painel estiver ativo -->
     </div>
 
   </div>
@@ -510,6 +882,8 @@
           <input type="number" id="mDur" step="0.25" min="0.25">
         </div>
       </div>
+      <label>Observações</label>
+      <textarea id="mObs" style="min-height:64px;resize:vertical;background:#111;color:var(--text,#f4f1eb);border:1px solid var(--border);border-radius:4px;padding:8px;font-size:13px;font-family:inherit;width:100%;" placeholder="Contexto, links, notas…"></textarea>
       <div class="modal-actions">
         <button class="btn danger" id="mDelete">Excluir</button>
         <button class="btn primary" id="mSave">Salvar</button>
@@ -551,8 +925,10 @@
    ═══════════════════════════════════════════════════════════════ */
 
 // ───────────── CONFIG ─────────────
-const DAY_START = 5.5, DAY_END = 24, HOUR_H = 70, SNAP = 0.25;
+const DAY_START = 5,   DAY_END = 24, HOUR_H = 70, SNAP = 0.25;
 const TOTAL_H = DAY_END - DAY_START;
+const MEAL_TITLES = ['café','café da manhã','café rápido','janta','almoço','almoco'];
+function isMeal(ev){ return MEAL_TITLES.some(m=>ev.t.toLowerCase().startsWith(m)); }
 const CAT_LABELS = { energia:'Energia', manutencao:'Manutenção', crescimento:'Crescimento', leilao:'Leilão', networking:'Networking', pessoal:'Pessoal', imprevisto:'Imprevisto' };
 const DOW_PT = ['DOM','SEG','TER','QUA','QUI','SEX','SÁB'];
 const MONTHS_PT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
@@ -566,6 +942,10 @@ const SPECIAL_DAYS = {
   '2026-06-01': { flag:'LOJA À NOITE' },
   '2026-06-03': { flag:'LOJA À NOITE' },
   '2026-06-04': { flag:'CDL/ACIF À NOITE' },
+  // Semana 24
+  '2026-06-09': { flag:'LOJA À NOITE' },
+  '2026-06-10': { flag:'LOJA À NOITE' },
+  '2026-06-11': { flag:'CDL/ACIF À NOITE' },
 };
 
 // ───────────── DATE HELPERS ─────────────
@@ -573,6 +953,7 @@ function iso(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0
 function parseISO(s){ const [y,m,d]=s.split('-').map(Number); return new Date(y,m-1,d); }
 function addDays(d,n){ const x=new Date(d); x.setDate(x.getDate()+n); return x; }
 function startOfWeek(d){ const x=new Date(d); x.setDate(x.getDate()-x.getDay()); x.setHours(0,0,0,0); return x; } // domingo
+function getWeekNum(d){ const dt=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate())); dt.setUTCDate(dt.getUTCDate()+4-(dt.getUTCDay()||7)); const ys=new Date(Date.UTC(dt.getUTCFullYear(),0,1)); return Math.ceil((((dt-ys)/86400000)+1)/7); }
 function sameDay(a,b){ return iso(a)===iso(b); }
 function fmtDateShort(d){ return String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0'); }
 const TODAY_ISO = iso(new Date());
@@ -583,6 +964,10 @@ const TODAY_ISO = iso(new Date());
 // que ainda NÃO está na agenda real. É lembrete visual, não compromisso confirmado.
 const D = { seg:'2026-05-25', ter:'2026-05-26', qua:'2026-05-27', qui:'2026-05-28', sex:'2026-05-29', sab:'2026-05-30' };
 // Datas da Semana 23 (planejamento PLADIM)
+
+// Datas da Semana 24 (PLADIM)
+const D24 = { seg:'2026-06-08', ter:'2026-06-09', qua:'2026-06-10', qui:'2026-06-11', sex:'2026-06-12', sab:'2026-06-13', dom:'2026-06-14' };
+
 const D23 = { seg:'2026-06-01', ter:'2026-06-02', qua:'2026-06-03', qui:'2026-06-04', sex:'2026-06-05', sab:'2026-06-06', dom:'2026-06-07' };
 const SEED = [
   // ── SEG 25 ──
@@ -697,6 +1082,82 @@ const SEED = [
 
   // ── DOM 07/06 — Família ──
   {date:D23.dom, s:14.0, dur:4.0, t:'Montagem do quarto do João Pedro', c:'pessoal', p:'Com Nathalia'},
+  // ═══════════════════════════════════════════════════════════════════
+  // SEMANA 24 (08–14/06/2026) — PLADIM
+  // SEMANA ATÍPICA: Ultrassom ter 14-17h · Fotos qua 14-17h · Obstetra sex 8-12h
+  // Manhãs = Plano das 100 (PRIMEIRA atividade de venda do dia)
+  // Seg+Qui tarde = Kappi POP · Ter tarde = João Pedro / Loja · Buffer: Thu
+  // ═══════════════════════════════════════════════════════════════════
+
+  // ── SEG 08/jun — Mobi mecânico + P100 quentes + Kappi POP + Enfermeira ──
+  {date:D24.seg, s:6.5,  dur:1.5, t:'LEITURA + MEDITAÇÃO + ORAÇÃO', c:'energia', p:'Rotina', lock:true},
+  {date:D24.seg, s:8.0,  dur:0.5, t:'CORRIDA', c:'energia', p:'Rotina · reduzida', lock:true},
+  {date:D24.seg, s:8.5,  dur:1.0, t:'CAFÉ DA MANHÃ', c:'energia', p:'Rotina', lock:true},
+  {date:D24.seg, s:9.5,  dur:0.75,t:'Levar Mobi ao mecânico', c:'leilao', p:'Logística'},
+  {date:D24.seg, s:10.25,dur:0.25,t:'SJF — Link pagamento Marcelo', c:'manutencao', p:'4ª SEMANA · FAZ AGORA'},
+  {date:D24.seg, s:10.5, dur:0.25,t:'Follow-up Versa OLX', c:'pessoal', p:'Seguro vencido'},
+  {date:D24.seg, s:10.75,dur:1.75,t:'Plano 100 — Contatos quentes Maçonaria + ACIF', c:'crescimento', p:'PRIMEIRA atividade de venda do dia'},
+  {date:D24.seg, s:12.5, dur:1.0, t:'Almoço', c:'pessoal', p:''},
+  {date:D24.seg, s:13.5, dur:4.0, t:'Kappi POP otimização — bloco fechado', c:'crescimento', p:'META · executa + documenta · screencast'},
+  {date:D24.seg, s:17.5, dur:1.0, t:'Janta', c:'pessoal', p:''},
+  {date:D24.seg, s:19.0, dur:1.5, t:'Reunião com enfermeira', c:'pessoal', p:'João Pedro'},
+
+  // ── TER 09/jun — P100 + Ultrassom + Loja ──
+  {date:D24.ter, s:6.5,  dur:1.5, t:'LEITURA + MEDITAÇÃO + ORAÇÃO', c:'energia', p:'Rotina', lock:true},
+  {date:D24.ter, s:8.0,  dur:0.5, t:'TREINO', c:'energia', p:'Rotina · reduzido', lock:true},
+  {date:D24.ter, s:8.5,  dur:1.0, t:'CAFÉ DA MANHÃ', c:'energia', p:'Rotina', lock:true},
+  {date:D24.ter, s:9.5,  dur:0.5, t:'ReDrive — revisão disparo', c:'crescimento', p:'Plano 100 · se operacional'},
+  {date:D24.ter, s:10.0, dur:2.0, t:'Plano 100 — Contatos quentes + agendar reuniões', c:'crescimento', p:'META 5 agend / 2 realizar'},
+  {date:D24.ter, s:12.0, dur:1.5, t:'Almoço + deslocamento', c:'pessoal', p:''},
+  {date:D24.ter, s:14.0, dur:3.0, t:'ULTRASSOM', c:'pessoal', p:'João Pedro'},
+  {date:D24.ter, s:17.0, dur:1.0, t:'Janta', c:'pessoal', p:''},
+  {date:D24.ter, s:18.0, dur:3.0, t:'Visita Loja Maçonaria', c:'energia', p:'Networking + captação'},
+
+  // ── QUA 10/jun — P100 + Fotos gestante + Juce + Maçonaria ──
+  {date:D24.qua, s:6.5,  dur:1.5, t:'LEITURA + MEDITAÇÃO + ORAÇÃO', c:'energia', p:'Rotina', lock:true},
+  {date:D24.qua, s:8.0,  dur:0.5, t:'TREINO', c:'energia', p:'Rotina · reduzido', lock:true},
+  {date:D24.qua, s:8.5,  dur:1.0, t:'CAFÉ DA MANHÃ', c:'energia', p:'Rotina', lock:true},
+  {date:D24.qua, s:9.5,  dur:3.0, t:'Plano 100 — Follow-up + GMN nicho novo', c:'crescimento', p:'PRIMEIRA atividade · agendar reuniões'},
+  {date:D24.qua, s:12.5, dur:1.5, t:'Almoço + deslocamento', c:'pessoal', p:''},
+  {date:D24.qua, s:14.0, dur:3.0, t:'FOTOS GESTANTE', c:'pessoal', p:'João Pedro'},
+  {date:D24.qua, s:17.0, dur:0.5, t:'Janta', c:'pessoal', p:''},
+  {date:D24.qua, s:17.5, dur:0.5, t:'Conversa com Juce', c:'pessoal', p:'Antes da Maçonaria'},
+  {date:D24.qua, s:18.0, dur:3.0, t:'Maçonaria', c:'energia', p:'Networking + energia'},
+
+  // ── QUI 11/jun — Chancelaria + REUNIÕES (META) + Kappi POP + CDL ──
+  {date:D24.qui, s:6.5,  dur:1.5, t:'LEITURA + MEDITAÇÃO + ORAÇÃO', c:'energia', p:'Rotina', lock:true},
+  {date:D24.qui, s:8.0,  dur:0.5, t:'CORRIDA', c:'energia', p:'Rotina · reduzida', lock:true},
+  {date:D24.qui, s:8.5,  dur:1.0, t:'CAFÉ DA MANHÃ', c:'energia', p:'Rotina', lock:true},
+  {date:D24.qui, s:9.5,  dur:2.0, t:'Chancelaria — Networking', c:'networking', p:'BLOCO FIXO quintas · 2h'},
+  {date:D24.qui, s:10.0, dur:1.0, t:'REUNIÃO 1 — Plano das 100', c:'crescimento', p:'META · demo via Parkinson antes'},
+  {date:D24.qui, s:11.0, dur:1.5, t:'REUNIÃO 2 + follow-up', c:'crescimento', p:'META'},
+  {date:D24.qui, s:12.5, dur:1.0, t:'Almoço', c:'pessoal', p:''},
+  {date:D24.qui, s:13.5, dur:3.0, t:'Kappi POP otimização (continuação)', c:'crescimento', p:'Documentação final · screencast'},
+  {date:D24.qui, s:16.5, dur:1.0, t:'Mobi — buscar / porta / lavação', c:'leilao', p:'Logística'},
+  {date:D24.qui, s:17.5, dur:0.5, t:'Janta', c:'pessoal', p:''},
+  {date:D24.qui, s:18.0, dur:2.5, t:'CDL ou ACIF — definir e participar', c:'networking', p:'Buscar núcleo · captar contatos'},
+
+  // ── SEX 12/jun — Obstetra + Gestão + PLADIM + Noite casal ──
+  {date:D24.sex, s:6.0,  dur:1.5, t:'LEITURA + MEDITAÇÃO + ORAÇÃO', c:'energia', p:'Rotina · início 6h (obstetra 8h)', lock:true},
+  {date:D24.sex, s:7.5,  dur:0.5, t:'CAFÉ rápido', c:'energia', p:'Obstetra 8h', lock:true},
+  {date:D24.sex, s:8.0,  dur:4.0, t:'OBSTETRA', c:'pessoal', p:'João Pedro'},
+  {date:D24.sex, s:12.0, dur:1.0, t:'Almoço', c:'pessoal', p:''},
+  {date:D24.sex, s:13.0, dur:1.0, t:'Caixa H2 + pessoal + docs contabilidade', c:'manutencao', p:'Gestão'},
+  {date:D24.sex, s:14.0, dur:0.5, t:'Blackbox — LIGAR (não enviar msg)', c:'pessoal', p:'Resolver hoje'},
+  {date:D24.sex, s:14.5, dur:0.75,t:'Publicar vaga estagiário', c:'manutencao', p:'INEGOCIÁVEL · contrat. 2 meses antes JP'},
+  {date:D24.sex, s:15.25,dur:0.25,t:'CITMAR — email cobrança', c:'manutencao', p:'15 min'},
+  {date:D24.sex, s:15.5, dur:0.5, t:'Definir e contratar coworking', c:'pessoal', p:'R$400/mês · crédito 30 dias'},
+  {date:D24.sex, s:16.0, dur:0.5, t:'Revisão indicadores semana 24', c:'manutencao', p:'Reuniões agendadas / realizadas'},
+  {date:D24.sex, s:16.5, dur:1.0, t:'PLADIM PRÓX. SEM.', c:'manutencao', p:''},
+  {date:D24.sex, s:17.5, dur:5.5, t:'Noite do casal', c:'pessoal', p:'Inegociável'},
+
+  // ── SÁB 13/jun — Energia (surf/trilha) + Família ──
+  {date:D24.sab, s:6.5,  dur:1.5, t:'LEITURA + MEDITAÇÃO + ORAÇÃO', c:'energia', p:'Rotina', lock:true},
+  {date:D24.sab, s:8.0,  dur:3.0, t:'SURF ou TRILHA', c:'energia', p:'INEGOCIÁVEL · energia da semana', lock:true},
+  {date:D24.sab, s:11.0, dur:1.0, t:'CAFÉ DA MANHÃ', c:'energia', p:'Rotina', lock:true},
+  {date:D24.sab, s:12.0, dur:1.5, t:'Almoço com Natália', c:'pessoal', p:'Conjugal'},
+  {date:D24.sab, s:14.0, dur:4.0, t:'Demo P100 (se reunião agendada)', c:'crescimento', p:'Bloco contingência · Parkinson'},
+
 ];
 
 
@@ -715,26 +1176,34 @@ const storage = {
 // ───────────── STATE ─────────────
 let events = [];           // {id,date,s,dur,t,c,p,lock,done,origin}
 let weekNotes = {};        // { 'AAAA-MM-DD' (segunda da semana) : 'texto' } — um bloco por semana
+let aprendizados = {};     // { 'AAAA-MM-DD' : 'texto' } — aprendizados por semana
 let principios = '';       // bloco imutável visível em toda semana
 let planoDone = 0;         // contador de reuniões do Plano das 100 já realizadas
 let changeLog = [];        // registro de exclusões/inclusões: {action,t,date,s,dur,c,fromPlan,at}
 let originalIds = [];      // ids que vieram no plano original (SEED) — base p/ marcar "do plano"
+let weekSnapshots = {};    // { 'AAAA-MM-DD' (segunda da semana) : [ array de eventos snapshot ] }
 let currentView = 'week';
-let cursor = parseISO(D.seg);   // data de referência (abre na semana com dados)
+let cursor = new Date();   // abre sempre na semana atual
 
 // origin: 'plano' = veio no SEED original; 'luan' = criado por mim depois
 // injectedWeeks: marca quais semanas já foram injetadas via auto-merge
-function persist(){ storage.save({ events, weekNotes, principios, planoDone, changeLog, originalIds, injectedWeeks, v:4 }); }
+function persist(){ storage.save({ events, weekNotes, aprendizados, principios, planoDone, changeLog, originalIds, injectedWeeks, weekSnapshots, v:4 }); }
 
 // Datas das semanas que devem ser auto-injetadas se o localStorage já tem dados
 // (semanas adicionadas depois que o usuário começou a usar o app)
 // version: se mudar, força nova injeção limpando eventos da semana anterior
 const AUTO_INJECT_WEEKS = {
   's23': {
-    version: 'v2',  // bumpou de v1 para v2 (ajustes de horário/categoria/ordem)
+    version: 'v2',
     label: 'Semana 23 (01–07/06/2026)',
     dates: [D23.seg, D23.ter, D23.qua, D23.qui, D23.sex, D23.sab, D23.dom],
     seedFilter: (e) => Object.values(D23).includes(e.date)
+  },
+  's24': {
+    version: 'v1',
+    label: 'Semana 24 (08–14/06/2026)',
+    dates: [D24.seg, D24.ter, D24.qua, D24.qui, D24.sex, D24.sab, D24.dom],
+    seedFilter: (e) => Object.values(D24).includes(e.date)
   }
 };
 let injectedWeeks = [];  // array de strings 'key:version' (ex: 's23:v2')
@@ -757,10 +1226,12 @@ function loadAll(){
       weekNotes = {};
     }
     principios = raw.principios||'';
+    aprendizados = raw.aprendizados||{};
     planoDone = raw.planoDone||0;
     changeLog = raw.changeLog||[];
     originalIds = raw.originalIds||events.filter(e=>e.origin==='plano').map(e=>e.id);
     injectedWeeks = raw.injectedWeeks||[];
+    weekSnapshots = raw.weekSnapshots||{};
 
     // ── AUTO-INJEÇÃO de semanas novas (com suporte a versionamento)
     let injected = 0;
@@ -803,7 +1274,8 @@ function loadAll(){
   } else {
     events = SEED.map((e,i)=>({ id:'e'+i, done:false, origin:'plano', ...e }));
     originalIds = events.map(e=>e.id);
-    weekNotes = {}; principios = ''; planoDone = 0; changeLog = [];
+    weekNotes = {}; aprendizados = {}; principios = ''; planoDone = 0; changeLog = {};
+    weekSnapshots = {};
     // marca todas as semanas auto-injetáveis com sua versão atual (vieram no SEED inicial)
     injectedWeeks = Object.keys(AUTO_INJECT_WEEKS).map(k => k + ':' + AUTO_INJECT_WEEKS[k].version);
   }
@@ -893,8 +1365,13 @@ function buildGrid(){
   });
 
   gridBody.innerHTML='';
+  // Now-line (horário atual)
+  const nowLineEl=document.createElement('div'); nowLineEl.id='nowLine'; nowLineEl.className='now-line'; nowLineEl.style.display='none'; gridBody.appendChild(nowLineEl);
   const timeCol=document.createElement('div'); timeCol.className='time-col';
-  for(let h=DAY_START;h<DAY_END;h++){ const slot=document.createElement('div'); slot.className='time-slot'; slot.innerHTML=`<span>${fmtTime(h)}</span>`; timeCol.appendChild(slot); }
+  for(let h=DAY_START;h<DAY_END;h++){
+    const slot=document.createElement('div'); slot.className='time-slot';
+    slot.innerHTML=Number.isInteger(h)?`<span>${fmtTime(h)}</span>`:'';
+    timeCol.appendChild(slot); }
   gridBody.appendChild(timeCol);
 
   days.forEach(d=>{
@@ -904,6 +1381,14 @@ function buildGrid(){
     col.dataset.date=di;
     col.style.minHeight=(TOTAL_H*HOUR_H)+'px';
     for(let h=DAY_START;h<DAY_END;h++){ const line=document.createElement('div'); line.className='hour-line'; col.appendChild(line); }
+    // clique em espaço vazio → novo evento
+    col.addEventListener('mousedown',e=>{
+      if(e.button!==0||e.target!==col&&!e.target.classList.contains('hour-line')) return;
+      e.preventDefault();
+      const r=col.getBoundingClientRect();
+      const clickH=snap(DAY_START+(e.clientY-r.top)/HOUR_H);
+      openModal(null, di, clickH);
+    });
     if(sp&&sp.banner){ const b=document.createElement('div'); b.className='day-banner'; b.innerHTML=sp.banner; col.appendChild(b); }
     gridBody.appendChild(col);
   });
@@ -929,12 +1414,14 @@ function renderEvents(){
       el.style.left=`calc(${leftPct}% + 3px)`;
       el.style.width=`calc(${widthPct}% - ${3+gapPct}px)`;
       const endH=ev.s+ev.dur;
+      const chk=isMeal(ev)?'':`<div class="ev-check${ev.done?' done':''}" data-check="1"></div>`;
+      const obsIcon=ev.obs?`<span class="ev-obs-icon" data-obs="${ev.obs.replace(/"/g,'&quot;')}">⊕</span>`:'';
       el.innerHTML=
         `<div class="ev-top">`+
-          `<div class="ev-check${ev.done?' done':''}" data-check="1"></div>`+
+          chk+
           `<div class="ev-body">`+
             `<div class="ev-time">${fmtTime(ev.s)}–${fmtTime(endH)}</div>`+
-            `<div class="ev-title">${ev.t}</div>`+
+            `<div class="ev-title">${ev.t}${obsIcon}</div>`+
             (ev.p?`<div class="ev-proj">${ev.p}</div>`:'')+
           `</div>`+
         `</div>`+
@@ -972,7 +1459,7 @@ function updateNavLabel(){
     navLabel.innerHTML=`${DOW_PT[cursor.getDay()]} ${cursor.getDate()}/${cursor.getMonth()+1}<small>${MONTHS_PT[cursor.getMonth()]} ${cursor.getFullYear()}</small>`;
   } else if(currentView==='week'){
     const sow=startOfWeek(cursor), eow=addDays(sow,6);
-    navLabel.innerHTML=`${fmtDateShort(sow)} – ${fmtDateShort(eow)}<small>Semana · ${MONTHS_PT[sow.getMonth()]}</small>`;
+    navLabel.innerHTML=`${fmtDateShort(sow)} – ${fmtDateShort(eow)}<small>S${getWeekNum(sow)} · ${MONTHS_PT[sow.getMonth()]} ${sow.getFullYear()}</small>`;
   } else {
     navLabel.innerHTML=`${MONTHS_PT[cursor.getMonth()]}<small>${cursor.getFullYear()}</small>`;
   }
@@ -1087,22 +1574,25 @@ gridBody.addEventListener('dblclick',e=>{
   const ev=events.find(x=>x.id===evEl.dataset.id);
   if(ev){ closeMiniPopup(); openModal(ev); }
 });
-// clicar numa área vazia da grade limpa a seleção e fecha popup
+// clicar numa área vazia da grade (fora de .day-col) limpa seleção
 gridBody.addEventListener('mousedown',e=>{
-  if(!e.target.closest('.event')){ clearSelection(); closeMiniPopup(); }
+  if(!e.target.closest('.event')&&!e.target.closest('.day-col')){ clearSelection(); closeMiniPopup(); }
 });
 
 // ───────────── MODAL ─────────────
 const overlay=document.getElementById('modalOverlay');
 let editingId=null;
-function openModal(ev){
+function openModal(ev, dateStr, startH){
   editingId=ev?ev.id:null;
   document.getElementById('modalTitle').textContent=ev?'Editar Compromisso':'Novo Compromisso';
   document.getElementById('mTitle').value=ev?ev.t:'';
   document.getElementById('mCat').value=ev?ev.c:'manutencao';
   document.getElementById('mProj').value=ev?ev.p:'';
-  document.getElementById('mDate').value=ev?ev.date:(currentView==='month'?iso(cursor):iso(visibleDays()[0]));
-  document.getElementById('mStart').value=ev?fmtTime(ev.s):'09:00';
+  document.getElementById('mObs').value=ev?ev.obs||'':'';
+  const defaultDate=dateStr||(currentView==='month'?iso(cursor):iso(visibleDays()[0]));
+  document.getElementById('mDate').value=ev?ev.date:defaultDate;
+  const defaultStart=startH!=null?fmtTime(startH):'09:00';
+  document.getElementById('mStart').value=ev?fmtTime(ev.s):defaultStart;
   document.getElementById('mDur').value=ev?ev.dur:1;
   document.getElementById('mDelete').style.display=ev?'':'none';
   overlay.classList.add('open');
@@ -1112,14 +1602,15 @@ document.getElementById('mSave').addEventListener('click',()=>{
   const t=document.getElementById('mTitle').value.trim()||'Sem título';
   const c=document.getElementById('mCat').value;
   const p=document.getElementById('mProj').value.trim();
+  const obs=document.getElementById('mObs').value.trim();
   const date=document.getElementById('mDate').value||iso(cursor);
   const [hh,mm]=document.getElementById('mStart').value.split(':').map(Number);
   const s=snap(hh+mm/60);
   const dur=Math.max(SNAP, parseFloat(document.getElementById('mDur').value)||1);
   snapshot();
-  if(editingId){ Object.assign(events.find(x=>x.id===editingId),{t,c,p,date,s,dur}); }
+  if(editingId){ Object.assign(events.find(x=>x.id===editingId),{t,c,p,obs,date,s,dur}); }
   else {
-    const novo={id:'e'+Date.now(), date, s, dur, t, c, p, done:false, origin:'luan'};
+    const novo={id:'e'+Date.now(), date, s, dur, t, c, p, obs, done:false, origin:'luan'};
     events.push(novo);
     logChange('incluido', novo);   // registra inclusão no log da semana
   }
@@ -1247,75 +1738,640 @@ document.addEventListener('click', e=>{ if(!e.target.closest('#ctxMenu')) closeC
 document.addEventListener('scroll', closeCtxMenu, true);
 window.addEventListener('resize', closeCtxMenu);
 
+// ───────────── DASHBOARD GRID — DRAG & DROP + RESIZE (zero dependências) ─────────────
+const DASH_LAYOUT_KEY = 'dashLayout_v3';
+
+// Definição dos cards: id, largura padrão em colunas (de 12)
+const CARD_DEFS = [
+  { id: 'card-hero',      cols: 12 },
+  { id: 'card-conclusao', cols: 4  },
+  { id: 'card-energia',   cols: 8  },
+  { id: 'card-insights',  cols: 12 },
+  { id: 'card-excluidos', cols: 6  },
+  { id: 'card-incluidos', cols: 6  },
+];
+
+// Ordem e colunas salvas em localStorage
+function saveDashLayout() {
+  const dash = document.getElementById('dash');
+  if (!dash) return;
+  const wraps = Array.from(dash.querySelectorAll('.dash-card-wrap'));
+  const layout = wraps.map(w => ({
+    id:   w.dataset.cardId,
+    cols: parseInt(w.dataset.cols),
+    h:    w.style.minHeight || null
+  }));
+  try { localStorage.setItem(DASH_LAYOUT_KEY, JSON.stringify(layout)); } catch(e) {}
+}
+
+function loadDashLayout() {
+  try {
+    const raw = localStorage.getItem(DASH_LAYOUT_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch(e) {}
+  return null;
+}
+
+function resetDashLayout() {
+  try { localStorage.removeItem(DASH_LAYOUT_KEY); } catch(e) {}
+}
+
+// ── Inicializa drag-and-drop nos cards do dashboard ──
+function initDashDragDrop() {
+  const dash = document.getElementById('dash');
+  if (!dash || window.innerWidth < 600) return;
+
+  let dragSrc = null;       // .dash-card-wrap sendo arrastado
+  let ghost = null;         // clone visual seguindo o cursor
+  let placeholder = null;   // espaço reservado no grid
+  let startX = 0, startY = 0;
+  let offsetX = 0, offsetY = 0;
+
+  function getCardAt(x, y) {
+    // Retorna o .dash-card-wrap mais próximo do ponto (x,y), excluindo o src
+    const wraps = Array.from(dash.querySelectorAll('.dash-card-wrap:not(.drag-ghost)'));
+    for (const w of wraps) {
+      if (w === dragSrc) continue;
+      const r = w.getBoundingClientRect();
+      if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) return w;
+    }
+    return null;
+  }
+
+  function onHandleDown(e) {
+    if (window.innerWidth < 600) return;
+    const handle = e.target.closest('.drag-handle');
+    if (!handle) return;
+    e.preventDefault();
+    e.stopPropagation();
+
+    dragSrc = handle.closest('.dash-card-wrap');
+    const rect = dragSrc.getBoundingClientRect();
+    const pt = e.touches ? e.touches[0] : e;
+    startX = pt.clientX; startY = pt.clientY;
+    offsetX = pt.clientX - rect.left;
+    offsetY = pt.clientY - rect.top;
+
+    // Cria ghost visual (clone flutuante)
+    ghost = dragSrc.cloneNode(true);
+    ghost.style.cssText = `
+      position: fixed;
+      left: ${rect.left}px; top: ${rect.top}px;
+      width: ${rect.width}px; height: ${rect.height}px;
+      opacity: 0.88; pointer-events: none; z-index: 999;
+      box-shadow: 0 16px 48px rgba(0,0,0,0.75);
+      border-radius: 8px; transition: none;
+    `;
+    document.body.appendChild(ghost);
+
+    // Insere placeholder no lugar do src
+    placeholder = document.createElement('div');
+    placeholder.className = 'dash-card-wrap drag-ghost';
+    placeholder.dataset.cols = dragSrc.dataset.cols;
+    placeholder.style.gridColumn = `span ${dragSrc.dataset.cols}`;
+    placeholder.style.height = rect.height + 'px';
+    dash.insertBefore(placeholder, dragSrc);
+    dragSrc.style.display = 'none';
+
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+    document.addEventListener('touchmove', onMove, { passive: false });
+    document.addEventListener('touchend', onUp);
+  }
+
+  function onMove(e) {
+    if (!dragSrc || !ghost) return;
+    if (e.cancelable) e.preventDefault();
+    const pt = e.touches ? e.touches[0] : e;
+
+    // Move ghost
+    ghost.style.left = (pt.clientX - offsetX) + 'px';
+    ghost.style.top  = (pt.clientY - offsetY) + 'px';
+
+    // Encontra card alvo
+    const target = getCardAt(pt.clientX, pt.clientY);
+    if (target && target !== placeholder) {
+      // Remove highlight anterior
+      dash.querySelectorAll('.drop-target').forEach(el => el.classList.remove('drop-target'));
+      target.classList.add('drop-target');
+
+      // Move placeholder: se cursor está na metade superior → insere antes, senão → depois
+      const r = target.getBoundingClientRect();
+      const midY = r.top + r.height / 2;
+      if (pt.clientY < midY) {
+        dash.insertBefore(placeholder, target);
+      } else {
+        dash.insertBefore(placeholder, target.nextSibling);
+      }
+    }
+  }
+
+  function onUp(e) {
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+    document.removeEventListener('touchmove', onMove);
+    document.removeEventListener('touchend', onUp);
+
+    if (!dragSrc) return;
+
+    // Remove highlights
+    dash.querySelectorAll('.drop-target').forEach(el => el.classList.remove('drop-target'));
+
+    // Substitui placeholder pelo src real
+    if (placeholder && placeholder.parentNode) {
+      placeholder.parentNode.insertBefore(dragSrc, placeholder);
+      placeholder.remove();
+    }
+    dragSrc.style.display = '';
+    if (ghost) { ghost.remove(); ghost = null; }
+
+    placeholder = null;
+    dragSrc = null;
+
+    saveDashLayout();
+  }
+
+  // Bind: delegação no dash — funciona mesmo após renderDashboard()
+  dash.addEventListener('mousedown', onHandleDown);
+  dash.addEventListener('touchstart', onHandleDown, { passive: false });
+}
+
+// ── Inicializa resize multi-borda nos cards (direita + inferior + diagonal) ──
+function initDashResize() {
+  const dash = document.getElementById('dash');
+  if (!dash || window.innerWidth < 600) return;
+  const COLS = 12;
+
+  dash.addEventListener('mousedown', startResize);
+  dash.addEventListener('touchstart', startResize, { passive: false });
+
+  function startResize(e) {
+    const handle = e.target.closest('.resize-h-handle, .resize-v-handle, .resize-d-handle');
+    if (!handle) return;
+    e.preventDefault(); e.stopPropagation();
+    const wrap = handle.closest('.dash-card-wrap');
+    if (!wrap) return;
+
+    const isH = handle.classList.contains('resize-h-handle');
+    const isV = handle.classList.contains('resize-v-handle');
+    const isD = handle.classList.contains('resize-d-handle');
+
+    const dashRect = dash.getBoundingClientRect();
+    const colW = dashRect.width / COLS;
+    const startCols = parseInt(wrap.dataset.cols) || 6;
+    const startH   = wrap.offsetHeight;
+    const pt = e.touches ? e.touches[0] : e;
+    const startX = pt.clientX, startY = pt.clientY;
+
+    function onMove(me) {
+      if (me.cancelable) me.preventDefault();
+      const mpt = me.touches ? me.touches[0] : me;
+      const dx = mpt.clientX - startX;
+      const dy = mpt.clientY - startY;
+
+      if (isH || isD) {
+        let newCols = Math.round(startCols + dx / colW);
+        newCols = Math.max(3, Math.min(COLS, newCols));
+        wrap.dataset.cols = newCols;
+        wrap.style.gridColumn = `span ${newCols}`;
+      }
+      if (isV || isD) {
+        let newH = Math.max(80, startH + dy);
+        wrap.style.minHeight = newH + 'px';
+        wrap.querySelector('.card').style.minHeight = (newH - 24) + 'px';
+      }
+    }
+
+    function onUp() {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      document.removeEventListener('touchmove', onMove);
+      document.removeEventListener('touchend', onUp);
+      saveDashLayout();
+    }
+
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+    document.addEventListener('touchmove', onMove, { passive: false });
+    document.addEventListener('touchend', onUp);
+  }
+}
+
+// ── cardWrap: agora inclui alças inferior e diagonal ──
+// (redefine a helper usada em renderDashboard)
+function cardWrapFull(id, defaultCols, innerHTML) {
+  return `<div class="dash-card-wrap" data-card-id="${id}" data-cols="${defaultCols}" style="grid-column:span ${defaultCols}">
+    <div class="drag-handle" title="Arrastar card">⠿</div>
+    <div class="resize-h-handle" title="Redimensionar largura"></div>
+    <div class="resize-v-handle" title="Redimensionar altura"></div>
+    <div class="resize-d-handle" title="Redimensionar livremente"></div>
+    ${innerHTML}
+  </div>`;
+}
+
+// ───────────── SPLITTER (agenda | notas lateral) ─────────────
+const SIDE_WIDTH_KEY = 'sideNotesWidth';
+const SIDE_OPEN_KEY  = 'sideNotesOpen';
+const SIDE_ORDER_KEY = 'notesOrder';
+
+let sideOpen = false;
+
+function saveSideWidth(w) {
+  try { localStorage.setItem(SIDE_WIDTH_KEY, w); } catch(e){}
+}
+function loadSideWidth() {
+  try { return parseInt(localStorage.getItem(SIDE_WIDTH_KEY)) || 320; } catch(e){ return 320; }
+}
+function saveSideOpen(v) {
+  try { localStorage.setItem(SIDE_OPEN_KEY, v ? '1' : '0'); } catch(e){}
+}
+function loadSideOpen() {
+  try { return localStorage.getItem(SIDE_OPEN_KEY) === '1'; } catch(e){ return false; }
+}
+
+function openSidePanel() {
+  sideOpen = true;
+  saveSideOpen(true);
+  const panel   = document.getElementById('sideNotesPanel');
+  const divider = document.getElementById('splitDivider');
+  const btn     = document.getElementById('sideNotesBtn');
+  const w       = loadSideWidth();
+  panel.style.width    = w + 'px';
+  panel.style.flexBasis = w + 'px';
+  panel.classList.add('visible');
+  divider.classList.add('visible');
+  if (btn) btn.classList.add('active');
+  syncNotesToSide(true);
+}
+
+function closeSidePanel() {
+  sideOpen = false;
+  saveSideOpen(false);
+  const panel   = document.getElementById('sideNotesPanel');
+  const divider = document.getElementById('splitDivider');
+  const btn     = document.getElementById('sideNotesBtn');
+  panel.classList.remove('visible');
+  divider.classList.remove('visible');
+  if (btn) btn.classList.remove('active');
+  syncNotesToSide(false);
+}
+
+// Move os cards de nota entre main-wrap e side-panel conforme `toSide`
+function syncNotesToSide(toSide) {
+  const order  = loadNotesOrder();
+  const wrap   = document.getElementById('notesMainWrap');
+  const panel  = document.getElementById('sideNotesPanel');
+  const header = panel.querySelector('.side-notes-header');
+
+  if (toSide) {
+    // Mover cards para o painel lateral (em ordem)
+    order.forEach(id => {
+      const card = document.getElementById(id + 'Card') || document.querySelector(`[data-note-id="${id}"]`);
+      if (card) panel.appendChild(card);
+    });
+    // Esconde wrap + divider de seção principal
+    document.getElementById('notesMainDivider').style.display = 'none';
+    wrap.style.display = 'none';
+  } else {
+    // Devolve os cards para o wrap principal em ordem
+    order.forEach(id => {
+      const card = document.getElementById(id + 'Card') || document.querySelector(`[data-note-id="${id}"]`);
+      if (card) wrap.appendChild(card);
+    });
+    document.getElementById('notesMainDivider').style.display = '';
+    wrap.style.display = '';
+  }
+}
+
+function initSplitter() {
+  const divider = document.getElementById('splitDivider');
+  const panel   = document.getElementById('sideNotesPanel');
+  if (!divider || !panel) return;
+
+  divider.addEventListener('mousedown', startSplit);
+  divider.addEventListener('touchstart', startSplit, { passive: false });
+
+  function startSplit(e) {
+    e.preventDefault();
+    divider.classList.add('active');
+    const pt = e.touches ? e.touches[0] : e;
+    const startX = pt.clientX;
+    const startW = panel.offsetWidth;
+
+    function onMove(me) {
+      if (me.cancelable) me.preventDefault();
+      const mpt = me.touches ? me.touches[0] : me;
+      const dx = startX - mpt.clientX; // arrastar para esquerda = alargar painel
+      const newW = Math.max(180, Math.min(window.innerWidth * 0.55, startW + dx));
+      panel.style.width     = newW + 'px';
+      panel.style.flexBasis = newW + 'px';
+    }
+    function onUp() {
+      divider.classList.remove('active');
+      saveSideWidth(panel.offsetWidth);
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      document.removeEventListener('touchmove', onMove);
+      document.removeEventListener('touchend', onUp);
+    }
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+    document.addEventListener('touchmove', onMove, { passive: false });
+    document.addEventListener('touchend', onUp);
+  }
+
+  // Botões abrir/fechar
+  document.getElementById('sideNotesBtn').addEventListener('click', () => {
+    sideOpen ? closeSidePanel() : openSidePanel();
+  });
+  document.getElementById('closeSideBtn').addEventListener('click', closeSidePanel);
+
+  // Restaura estado ao carregar
+  if (loadSideOpen()) openSidePanel();
+}
+
+// ───────────── DRAG DE NOTAS ─────────────
+function saveNotesOrder(order) {
+  try { localStorage.setItem(SIDE_ORDER_KEY, JSON.stringify(order)); } catch(e){}
+}
+function loadNotesOrder() {
+  try {
+    const raw = localStorage.getItem(SIDE_ORDER_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch(e) {}
+  return ['principios', 'weekNotes', 'aprendizados'];
+}
+
+function initNotesDragDrop() {
+  // Delegação em ambos os containers (mainWrap + sidePanel)
+  ['notesMainWrap', 'sideNotesPanel'].forEach(containerId => {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+
+    let dragSrc = null, ghost = null, placeholder = null;
+    let offsetX = 0, offsetY = 0;
+
+    container.addEventListener('mousedown', onDown);
+    container.addEventListener('touchstart', onDown, { passive: false });
+
+    function onDown(e) {
+      const handle = e.target.closest('.note-drag-handle');
+      if (!handle) return;
+      e.preventDefault(); e.stopPropagation();
+      dragSrc = handle.closest('.notes-card');
+      if (!dragSrc) return;
+      const rect = dragSrc.getBoundingClientRect();
+      const pt   = e.touches ? e.touches[0] : e;
+      offsetX = pt.clientX - rect.left;
+      offsetY = pt.clientY - rect.top;
+
+      ghost = dragSrc.cloneNode(true);
+      ghost.style.cssText = `position:fixed;left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;opacity:0.88;pointer-events:none;z-index:999;box-shadow:0 12px 36px rgba(0,0,0,.7);border-radius:8px;transition:none;`;
+      document.body.appendChild(ghost);
+
+      placeholder = document.createElement('div');
+      placeholder.className = 'notes-card note-ghost';
+      placeholder.style.height = rect.height + 'px';
+      container.insertBefore(placeholder, dragSrc);
+      dragSrc.classList.add('note-dragging');
+
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+      document.addEventListener('touchmove', onMove, { passive: false });
+      document.addEventListener('touchend', onUp);
+    }
+
+    function onMove(e) {
+      if (!dragSrc || !ghost) return;
+      if (e.cancelable) e.preventDefault();
+      const pt = e.touches ? e.touches[0] : e;
+      ghost.style.left = (pt.clientX - offsetX) + 'px';
+      ghost.style.top  = (pt.clientY - offsetY) + 'px';
+
+      // Encontra card alvo dentro do container
+      const cards = Array.from(container.querySelectorAll('.notes-card:not(.note-ghost):not(.note-dragging)'));
+      for (const c of cards) {
+        const r = c.getBoundingClientRect();
+        if (pt.clientX >= r.left && pt.clientX <= r.right && pt.clientY >= r.top && pt.clientY <= r.bottom) {
+          const mid = r.top + r.height / 2;
+          container.insertBefore(placeholder, pt.clientY < mid ? c : c.nextSibling);
+          break;
+        }
+      }
+    }
+
+    function onUp() {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      document.removeEventListener('touchmove', onMove);
+      document.removeEventListener('touchend', onUp);
+      if (!dragSrc) return;
+      if (placeholder && placeholder.parentNode) {
+        placeholder.parentNode.insertBefore(dragSrc, placeholder);
+        placeholder.remove();
+      }
+      dragSrc.classList.remove('note-dragging');
+      if (ghost) { ghost.remove(); ghost = null; }
+      placeholder = null; dragSrc = null;
+      // Salva nova ordem
+      const cards = Array.from(container.querySelectorAll('.notes-card[data-note-id]'));
+      saveNotesOrder(cards.map(c => c.dataset.noteId));
+    }
+  });
+}
+
+// ── Aplica layout salvo (ordem + colunas + alturas) ──
+function applyDashLayout() {
+  const dash = document.getElementById('dash');
+  if (!dash) return;
+  const saved = loadDashLayout();
+  if (!saved) return;
+
+  saved.forEach(cfg => {
+    const wrap = dash.querySelector(`.dash-card-wrap[data-card-id="${cfg.id}"]`);
+    if (!wrap) return;
+    wrap.dataset.cols = cfg.cols;
+    wrap.style.gridColumn = `span ${cfg.cols}`;
+    if (cfg.h) {
+      wrap.style.minHeight = cfg.h;
+      const card = wrap.querySelector('.card');
+      if (card) card.style.minHeight = (parseInt(cfg.h) - 24) + 'px';
+    }
+    dash.appendChild(wrap);
+  });
+}
+
+// ───────────── SNAPSHOT DO PLANEJAMENTO ─────────────
+function getWeekSnapshotKey(){
+  return iso(startOfWeek(cursor));
+}
+
+function takeWeekSnapshot(){
+  const key = getWeekSnapshotKey();
+  if (weekSnapshots[key]) {
+    // Já tem snapshot → destravar
+    delete weekSnapshots[key];
+    persist();
+    toast('Planejamento destravado');
+  } else {
+    // Não tem → travar agora
+    const sow = startOfWeek(cursor);
+    const weekDates = Array.from({length:7},(_,i)=>iso(addDays(sow,i)));
+    weekSnapshots[key] = events
+      .filter(e => weekDates.includes(e.date))
+      .map(e => ({...e}));
+    persist();
+    toast('Planejamento travado ✓');
+  }
+  renderDashboard();
+}
+
 // ───────────── DASHBOARD ─────────────
-// Plano das 100: marco — 1ª reunião ~03/jun, 100ª ~mid-out/2026. 1 reunião/dia útil.
 const PLANO_TOTAL=100;
 const PLANO_START=parseISO('2026-06-03');
 const PLANO_END=parseISO('2026-10-16');
 function businessDaysBetween(a,b){ let n=0,d=new Date(a); while(d<=b){ const wd=d.getDay(); if(wd!==0&&wd!==6) n++; d=addDays(d,1);} return n; }
 
 function renderDashboard(){
-  const dash=document.getElementById('dash');
-  // Semana de referência = semana do cursor
-  const sow=startOfWeek(cursor);
-  const weekDates=Array.from({length:7},(_,i)=>iso(addDays(sow,i)));
-  const wkEvents=events.filter(e=>weekDates.includes(e.date) && e.c!=='imprevisto');
-  const total=wkEvents.length;
-  const done=wkEvents.filter(e=>e.done).length;
-  const pctDone=total?Math.round(done/total*100):0;
+  const dash = document.getElementById('dash');
 
-  // horas por categoria (semana)
-  const byCat={}; let totalH=0;
+  const sow = startOfWeek(cursor);
+  const weekDates = Array.from({length:7},(_,i)=>iso(addDays(sow,i)));
+  const wkEvents = events.filter(e=>weekDates.includes(e.date) && e.c!=='imprevisto' && !isMeal(e));
+  const total = wkEvents.length;
+  const done  = wkEvents.filter(e=>e.done).length;
+  const pctDone = total ? Math.round(done/total*100) : 0;
+
+  const byCat = {}; let totalH = 0;
   events.filter(e=>weekDates.includes(e.date)).forEach(e=>{ byCat[e.c]=(byCat[e.c]||0)+e.dur; totalH+=e.dur; });
 
+  const byExec = {};
+  events.filter(e=>weekDates.includes(e.date)&&e.done).forEach(e=>{ byExec[e.c]=(byExec[e.c]||0)+e.dur; });
+
+  const snapKey = getWeekSnapshotKey();
+  const snap    = weekSnapshots[snapKey] || null;
+  const hasSnap = !!snap;
+  const bySnap  = {};
+  if(snap){ snap.forEach(e=>{ bySnap[e.c]=(bySnap[e.c]||0)+e.dur; }); }
+
   // Plano das 100
-  const today=new Date(); today.setHours(0,0,0,0);
+  const today = new Date(); today.setHours(0,0,0,0);
   let bizLeft, ritmo, statusClass='', diasMsg;
   if(today<PLANO_START){ bizLeft=businessDaysBetween(PLANO_START,PLANO_END); diasMsg='dias úteis no plano'; }
   else if(today>PLANO_END){ bizLeft=0; diasMsg='prazo encerrado'; }
   else { bizLeft=businessDaysBetween(today,PLANO_END); diasMsg='dias úteis restantes'; }
-  const restantes=PLANO_TOTAL-planoDone;
-  ritmo=bizLeft>0?(restantes/bizLeft):restantes;
+  const restantes = PLANO_TOTAL - planoDone;
+  ritmo = bizLeft>0 ? (restantes/bizLeft) : restantes;
   if(ritmo<=1.05) statusClass='ok'; else if(ritmo<=1.4) statusClass=''; else statusClass='warn';
-  const planoPct=Math.round(planoDone/PLANO_TOTAL*100);
+  const planoPct = Math.round(planoDone/PLANO_TOTAL*100);
 
-  // donut tarefas
   const R=46, C=2*Math.PI*R, off=C*(1-pctDone/100);
 
-  // energy bars ordenadas por horas
-  const cats=Object.keys(byCat).sort((a,b)=>byCat[b]-byCat[a]);
-  let ebars='';
-  cats.forEach(c=>{ const h=byCat[c], pct=totalH?Math.round(h/totalH*100):0;
-    ebars+=`<div class="ebar"><div class="ebar-top"><span class="en">${CAT_LABELS[c]}</span><span class="ev-h">${h.toFixed(2).replace(/\.?0+$/,'')}h · ${pct}%</span></div><div class="ebar-track"><i style="width:${pct}%;background:var(--c-${c})"></i></div></div>`; });
+  // ── Barras de energia ──
+  // Escala: total de horas da semana = 100%
+  // Plano: horas do snapshot ÷ total de horas do snapshot × 100%
+  // Executado: horas done ÷ total de horas do snapshot × 100%
+  // O total do snapshot é fixo após travado — permite comparar a distribuição
 
-  // insights automáticos (alinhados ao framework: foco em 20%/crescimento + deadline sagrado)
+  const cats = Object.keys(byCat).sort((a,b)=>byCat[b]-byCat[a]);
+  let ebars = '';
+  let maxDesvio = { cat:null, plan:0, exec:0, desvio:0 };
+
+  // Total de horas do snapshot (ou da semana atual, se não travado)
+  const snapTotalH = hasSnap
+    ? snap.reduce((s,e) => s + e.dur, 0)
+    : totalH;
+  const baseH = snapTotalH > 0 ? snapTotalH : 1;
+
+  // Total de horas executadas (para calcular % exec em relação ao mesmo total)
+  const execTotalH = events.filter(e=>weekDates.includes(e.date)&&e.done)
+    .reduce((s,e)=>s+e.dur, 0);
+
+  // Botão toggle
+  const snapBtn = hasSnap
+    ? `<button class="btn-lock-plan locked" id="btnLockPlan">⊙ Planejamento travado — Destravar</button>`
+    : `<button class="btn-lock-plan" id="btnLockPlan">⊙ Travar Planejamento</button>`;
+  const snapNotice = !hasSnap
+    ? `<div class="snap-notice">Trave o planejamento no início da semana para comparar com o executado.</div>`
+    : '';
+
+  cats.forEach(c => {
+    // Horas planejadas: do snapshot se travado, do estado atual se não
+    const planH = hasSnap ? (bySnap[c]||0) : (byCat[c]||0);
+    const execH = byExec[c]||0;
+
+    // % em relação ao total de horas da semana (snapshot ou atual)
+    const planPct = Math.round((planH / baseH) * 100);
+    const execPct = Math.round((execH / baseH) * 100);
+
+    if (hasSnap && planH > 0) {
+      const dev = Math.abs(execH - planH) / planH * 100;
+      if (dev > maxDesvio.desvio) maxDesvio = { cat:c, plan:planH, exec:execH, desvio:dev };
+    }
+
+    const planLabel = `<span class="stat-plan">${planH.toFixed(1)}h · ${planPct}%</span>`;
+    const execLabel = `<span class="stat-exec">${execH.toFixed(1)}h · ${execPct}%</span>`;
+
+    if (hasSnap) {
+      ebars += `<div class="ebar-dual">
+        <div class="ebar-dual-top">
+          <span class="en">${CAT_LABELS[c]}</span>
+          <div class="ebar-dual-stats">${planLabel}<span class="stat-sep"> / </span>${execLabel}</div>
+        </div>
+        <div class="ebar-row">
+          <span class="ebar-row-label plan">Plano</span>
+          <div class="ebar-track-dual"><i class="plan-bar" style="width:${planPct}%"></i></div>
+        </div>
+        <div class="ebar-row">
+          <span class="ebar-row-label exec">Feito</span>
+          <div class="ebar-track-dual"><i class="exec-bar" style="width:${execPct}%"></i></div>
+        </div>
+      </div>`;
+    } else {
+      // Sem snapshot: barra simples — % do total da semana
+      ebars += `<div class="ebar"><div class="ebar-top"><span class="en">${CAT_LABELS[c]}</span><span class="ev-h">${planH.toFixed(1)}h · ${planPct}%</span></div><div class="ebar-track"><i style="width:${planPct}%;background:var(--c-${c})"></i></div></div>`;
+    }
+  });
+
+  // Insights
   const hCresc=byCat['crescimento']||0, hManut=byCat['manutencao']||0;
   const pctCresc=totalH?Math.round(hCresc/totalH*100):0;
   let insights=[];
-  insights.push({k:ritmo>1.4?'alert':(ritmo<=1.05?'good':''), ic:'▸', txt:`Plano das 100: faltam <b>${restantes}</b> reuniões em <b>${bizLeft}</b> ${diasMsg}. Ritmo necessário: <b>${ritmo.toFixed(2)}/dia útil</b>${ritmo>1.4?' — acima de 1/dia, prazo em risco.':(ritmo<=1.05?' — dentro do alvo.':'')}`});
-  insights.push({k: pctCresc>=30?'good':'', ic:'▸', txt:`Crescimento ocupou <b>${pctCresc}%</b> da semana (${hCresc.toFixed(1)}h). É o bloco que move o Projeto 2042 — deveria liderar.`});
-  if(hManut>hCresc) insights.push({k:'alert', ic:'▸', txt:`Manutenção (${hManut.toFixed(1)}h) > Crescimento (${hCresc.toFixed(1)}h). Sinal de captura pela operação da consultoria. Candidato a delegar.`});
-  insights.push({k: pctDone>=80?'good':(pctDone<50?'alert':''), ic:'▸', txt:`Conclusão da semana: <b>${done}/${total}</b> tarefas (${pctDone}%). Habilidade sem entrega é só sensação.`});
+  insights.push({k:ritmo>1.4?'alert':(ritmo<=1.05?'good':''),ic:'▸',txt:`Plano das 100: faltam <b>${restantes}</b> reuniões em <b>${bizLeft}</b> ${diasMsg}. Ritmo necessário: <b>${ritmo.toFixed(2)}/dia útil</b>${ritmo>1.4?' — acima de 1/dia, prazo em risco.':(ritmo<=1.05?' — dentro do alvo.':'')}`});
+  insights.push({k:pctCresc>=30?'good':'',ic:'▸',txt:`Crescimento ocupou <b>${pctCresc}%</b> da semana (${hCresc.toFixed(1)}h). É o bloco que move o Projeto 2042 — deveria liderar.`});
+  if(hManut>hCresc) insights.push({k:'alert',ic:'▸',txt:`Manutenção (${hManut.toFixed(1)}h) > Crescimento (${hCresc.toFixed(1)}h). Sinal de captura pela operação da consultoria. Candidato a delegar.`});
+  insights.push({k:pctDone>=80?'good':(pctDone<50?'alert':''),ic:'▸',txt:`Conclusão da semana: <b>${done}/${total}</b> tarefas (${pctDone}%). Habilidade sem entrega é só sensação.`});
+  if(hasSnap && maxDesvio.cat){
+    const devClass = maxDesvio.desvio>50?'alert':'';
+    insights.push({k:devClass,ic:'▸',txt:`Maior desvio planejado→executado: <b>${CAT_LABELS[maxDesvio.cat]}</b> — planejou <b>${maxDesvio.plan.toFixed(1)}h</b>, executou <b>${maxDesvio.exec.toFixed(1)}h</b> — desvio de <b>${Math.round(maxDesvio.desvio)}%</b>.`});
+  }
 
-  // log de mudanças da semana (exclusões/inclusões cujo evento pertencia a esta semana)
-  const wkLog=changeLog.filter(l=>weekDates.includes(l.date));
-  const excluidos=wkLog.filter(l=>l.action==='excluido');
-  const incluidos=wkLog.filter(l=>l.action==='incluido');
-  const excPlano=excluidos.filter(l=>l.fromPlan).length;
+  // Log
+  const wkLog = changeLog.filter(l=>weekDates.includes(l.date));
+  const excluidos = wkLog.filter(l=>l.action==='excluido');
+  const incluidos = wkLog.filter(l=>l.action==='incluido');
+  const excPlano  = excluidos.filter(l=>l.fromPlan).length;
   function logRows(arr,kind){
     if(!arr.length) return '<div class="plano-sub">Nenhum.</div>';
     return arr.map(l=>{
       const d=parseISO(l.date);
       const tag=kind==='exc'
-        ? (l.fromPlan?'<span class="log-tag plano">do plano</span>':'<span class="log-tag luan">meu</span>')
-        : '<span class="log-tag luan">novo</span>';
+        ?(l.fromPlan?'<span class="log-tag plano">do plano</span>':'<span class="log-tag luan">meu</span>')
+        :'<span class="log-tag luan">novo</span>';
       return `<div class="log-row"><span class="log-when">${DOW_PT[d.getDay()]} ${fmtDateShort(d)} · ${fmtTime(l.s)}</span><span class="log-t">${l.t}</span>${tag}</div>`;
     }).join('');
   }
-  if(excPlano>0) insights.push({k:'alert', ic:'▸', txt:`<b>${excPlano}</b> compromisso(s) do plano original foram excluídos esta semana — não remanejados, excluídos. Veja no registro abaixo o que caiu.`});
+  if(excPlano>0) insights.push({k:'alert',ic:'▸',txt:`<b>${excPlano}</b> compromisso(s) do plano original foram excluídos esta semana — não remanejados, excluídos. Veja no registro abaixo o que caiu.`});
 
-  dash.innerHTML=`
+  // ── Helper: gera wrapper de card com alça de drag e resize (delega para cardWrapFull) ──
+  function cardWrap(id, defaultCols, innerHTML) {
+    return cardWrapFull(id, defaultCols, innerHTML);
+  }
+
+  // ── Conteúdo de cada card ──
+  const htmlHero = cardWrap('card-hero', 12, `
     <div class="card hero">
+      <div class="card-label">Plano das 100 · progresso</div>
       <div class="plano-head">
         <div><div class="plano-title">PLANO DAS <em>100</em></div><div class="plano-sub">100 apresentações de agentes de IA · 1 reunião concluída/dia útil</div></div>
         <div class="plano-sub">${planoDone}/${PLANO_TOTAL} concluídas</div>
@@ -1333,9 +2389,10 @@ function renderDashboard(){
         <span class="cnum">${planoDone}</span>
         <button class="cbtn" id="planoPlus">+</button>
       </div>
-    </div>
+    </div>`);
 
-    <div class="card span4">
+  const htmlConclusao = cardWrap('card-conclusao', 4, `
+    <div class="card">
       <div class="card-label">Conclusão da Semana</div>
       <div class="ring-wrap">
         <div class="ring">
@@ -1348,31 +2405,55 @@ function renderDashboard(){
           <div class="rl">Total <b>${total}</b></div>
         </div>
       </div>
-    </div>
+    </div>`);
 
-    <div class="card span8">
-      <div class="card-label">Energia por Área (horas planejadas na semana)</div>
+  const htmlEnergia = cardWrap('card-energia', 8, `
+    <div class="card">
+      <div class="card-label">Energia por Área · planejado vs. executado</div>
+      ${snapBtn}${snapNotice}
       ${ebars||'<div class="plano-sub">Sem eventos nesta semana.</div>'}
-    </div>
+    </div>`);
 
-    <div class="card span12">
+  const htmlInsights = cardWrap('card-insights', 12, `
+    <div class="card">
       <div class="card-label">Insights · desempenho vs. metas</div>
       ${insights.map(i=>`<div class="insight ${i.k}"><span class="ic">${i.ic}</span><span>${i.txt}</span></div>`).join('')}
-    </div>
+    </div>`);
 
-    <div class="card span6">
+  const htmlExcluidos = cardWrap('card-excluidos', 6, `
+    <div class="card">
       <div class="card-label">Excluídos da semana · ${excluidos.length}</div>
       <div class="log-list">${logRows(excluidos,'exc')}</div>
-    </div>
-    <div class="card span6">
+    </div>`);
+
+  const htmlIncluidos = cardWrap('card-incluidos', 6, `
+    <div class="card">
       <div class="card-label">Incluídos na semana · ${incluidos.length}</div>
       <div class="log-list">${logRows(incluidos,'inc')}</div>
-    </div>
-  `;
+    </div>`);
 
+  dash.innerHTML = htmlHero + htmlConclusao + htmlEnergia + htmlInsights + htmlExcluidos + htmlIncluidos;
+
+  // Aplica layout salvo (ordem + colunas)
+  applyDashLayout();
+
+  // Inicializa interações (sempre após o innerHTML)
+  initDashDragDrop();
+  initDashResize();
+
+  // Botões internos
   document.getElementById('planoPlus').addEventListener('click',()=>{ if(planoDone<999){ planoDone++; renderDashboard(); persist(); toast('Reunião registrada · '+planoDone+'/100'); }});
   document.getElementById('planoMinus').addEventListener('click',()=>{ if(planoDone>0){ planoDone--; renderDashboard(); persist(); }});
+  const btnLock = document.getElementById('btnLockPlan');
+  if(btnLock) btnLock.addEventListener('click', takeWeekSnapshot);
 }
+
+// Botão resetar layout
+document.getElementById('resetLayoutBtn').addEventListener('click', ()=>{
+  resetDashLayout();
+  renderDashboard();
+  toast('Layout restaurado ao padrão');
+});
 
 // ───────────── NOTAS + VOZ ─────────────
 // Modelo: UM bloco de notas por semana (chave = segunda da semana, ISO)
@@ -1390,12 +2471,15 @@ function fmtWeekRange(d){
 }
 
 function refreshNotesUI(){
-  // bloco da semana ativa
   const k=currentWeekKey();
   weekNotesLabel.textContent=`Notas da Semana · ${fmtWeekRange(cursor)}`;
   notesArea.value=weekNotes[k]||'';
-  // bloco princípios (mesmo conteúdo em qualquer semana)
   principiosArea.value=principios||'';
+  // aprendizados
+  const aprendEl=document.getElementById('aprendArea');
+  const aprendLbl=document.getElementById('aprendLabel');
+  if(aprendEl){ aprendEl.value=aprendizados[k]||''; }
+  if(aprendLbl){ aprendLbl.textContent=`🎯 Aprendizados · ${fmtWeekRange(cursor)}`; }
 }
 
 let saveTimer=null;
@@ -1413,6 +2497,16 @@ principiosArea.addEventListener('input',()=>{
   princStatus.textContent='salvando…'; princStatus.classList.remove('saved');
   clearTimeout(princTimer);
   princTimer=setTimeout(()=>{ persist(); princStatus.textContent='salvo ✓'; princStatus.classList.add('saved'); }, 500);
+});
+
+let aprendTimer=null;
+document.getElementById('aprendArea').addEventListener('input',()=>{
+  const k=currentWeekKey();
+  aprendizados[k]=document.getElementById('aprendArea').value;
+  const aprendStatus=document.getElementById('aprendStatus');
+  aprendStatus.textContent='salvando…'; aprendStatus.classList.remove('saved');
+  clearTimeout(aprendTimer);
+  aprendTimer=setTimeout(()=>{ persist(); aprendStatus.textContent='salvo ✓'; aprendStatus.classList.add('saved'); }, 500);
 });
 
 // — Web Speech API —
@@ -1591,8 +2685,10 @@ document.getElementById('importFile').addEventListener('change',(e)=>{
       } else { weekNotes={}; }
       principios=data.principios||'';
       planoDone=data.planoDone||0;
+      aprendizados=data.aprendizados||{};
       changeLog=data.changeLog||[]; originalIds=data.originalIds||events.filter(e=>e.origin==='plano').map(e=>e.id);
       injectedWeeks=data.injectedWeeks||[];
+      weekSnapshots=data.weekSnapshots||{};
       undoStack=[]; selectedId=null;
       persist(); syncView(); refreshNotesUI(); toast('Backup importado com sucesso');
     }catch(err){ toast('Arquivo inválido'); }
@@ -1600,6 +2696,38 @@ document.getElementById('importFile').addEventListener('change',(e)=>{
   reader.readAsText(file);
   e.target.value='';
 });
+
+// ───────────── NOW LINE ─────────────
+function updateNowLine(){
+  const line=document.getElementById('nowLine'); if(!line) return;
+  const now=new Date();
+  const h=now.getHours()+now.getMinutes()/60;
+  if(h<DAY_START||h>DAY_END){ line.style.display='none'; return; }
+  line.style.display='block';
+  // posiciona relativo ao gridBody (absoluto dentro)
+  line.style.top=(h-DAY_START)*HOUR_H+'px';
+  // largura = todas as colunas (pular time-col de 56px)
+  const gb=document.getElementById('gridBody');
+  if(gb){ line.style.left='56px'; line.style.right='0'; }
+}
+setInterval(updateNowLine, 60000);
+
+// ───────────── OBS POPUP ─────────────
+let obsPopupEl=null;
+function closeObsPopup(){ if(obsPopupEl){ obsPopupEl.remove(); obsPopupEl=null; } }
+document.addEventListener('mouseover',e=>{
+  const icon=e.target.closest('.ev-obs-icon'); if(!icon) return;
+  closeObsPopup();
+  const pop=document.createElement('div'); pop.className='obs-popup';
+  pop.textContent=icon.dataset.obs||'';
+  document.body.appendChild(pop);
+  const r=icon.getBoundingClientRect();
+  let left=r.right+8; if(left+240>window.innerWidth-10) left=r.left-248;
+  let top=r.top; if(top+100>window.innerHeight-10) top=window.innerHeight-110;
+  pop.style.left=left+'px'; pop.style.top=top+'px';
+  obsPopupEl=pop;
+});
+document.addEventListener('mouseout',e=>{ if(e.target.closest('.ev-obs-icon')) closeObsPopup(); });
 
 // ───────────── SCROLL SYNC (cabeçalho fixo segue scroll horizontal da grade) ─────────────
 const dayHeaderScroller = document.getElementById('dayHeaderScroller');
@@ -1660,7 +2788,7 @@ document.addEventListener('mousedown', (e) => {
   }
 });
 // fechar popup ao rolar
-document.getElementById('appScroll').addEventListener('scroll', closeMiniPopup);
+document.getElementById('mainCol').addEventListener('scroll', closeMiniPopup);
 gridScroller.addEventListener('scroll', closeMiniPopup);
 
 // ───────────── INIT ─────────────
@@ -1668,8 +2796,11 @@ loadAll();
 buildLegend();
 syncView();
 refreshNotesUI();
+initSplitter();
+initNotesDragDrop();
 // posiciona o scroll do grid perto do começo do dia
-setTimeout(()=>{ const sc=document.getElementById('appScroll'); if(sc) sc.scrollTop=0; },50);
+setTimeout(()=>{ const sc=document.getElementById('mainCol'); if(sc) sc.scrollTop=0; },50);
+updateNowLine();
 
 </script>
 </body>
