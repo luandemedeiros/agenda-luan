@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -110,7 +109,7 @@
 
   /* ════════ WEEK / DAY GRID ════════ */
   .grid-wrap { position: relative; }
-  .grid-scroller { overflow-x: auto; overflow-y: visible; position: relative; }
+  .grid-scroller { overflow-x: auto; overflow-y: visible; position: relative; min-height: 100%; }
   .grid-scroller::-webkit-scrollbar { height: 9px; }
   .grid-scroller::-webkit-scrollbar-thumb { background: var(--gray-mid); border-radius: 4px; }
 
@@ -134,7 +133,7 @@
   .day-head.is-today .dow { color: var(--gold); }
   .day-head .flag { display: block; font-size: 8px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--c-leilao); margin-top: 3px; font-weight: 600; }
 
-  .grid-body { display: grid; position: relative; }
+  .grid-body { display: grid; position: relative; overflow: visible; }
   .time-col { position: relative; border-right: 1px solid var(--border); }
   .time-slot { height: var(--hour-h); position: relative; }
   .time-slot span { position: absolute; top: -8px; right: 6px; font-size: 11px; color: var(--gray-light); font-variant-numeric: tabular-nums; font-weight: 500; }
@@ -1057,7 +1056,8 @@
    ═══════════════════════════════════════════════════════════════ */
 
 // ───────────── CONFIG ─────────────
-const DAY_START = 5,   DAY_END = 24, HOUR_H = 70, SNAP = 0.25;
+const DAY_START = 5, DAY_END = 24, SNAP = 0.25;
+const HOUR_H = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--hour-h')) || 70;
 const TOTAL_H = DAY_END - DAY_START;
 const MEAL_TITLES = ['café','café da manhã','café rápido','janta','almoço','almoco'];
 function isMeal(ev){ return MEAL_TITLES.some(m=>ev.t.toLowerCase().startsWith(m)); }
