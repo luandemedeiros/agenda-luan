@@ -21,14 +21,7 @@
     --border: rgba(255,255,255,0.09);
     --hour-h: 70px;
 
-    --c-energia: #36a866;      --c-energia-bg: rgba(54,168,102,0.18);
-    --c-manutencao: #3d86c6;   --c-manutencao-bg: rgba(61,134,198,0.18);
-    --c-crescimento: #c9a84c;  --c-crescimento-bg: rgba(201,168,76,0.18);
-    --c-leilao: #d0473b;       --c-leilao-bg: rgba(208,71,59,0.18);
-    --c-networking: #a05bc4;   --c-networking-bg: rgba(160,91,196,0.18);
-    --c-imprevisto: #6a6a6a;   --c-imprevisto-bg: rgba(130,130,130,0.15);
-    --c-pessoal: #9b59b6;      --c-pessoal-bg: rgba(155,89,182,0.18);
-    --c-conteudo: #e67e22;     --c-conteudo-bg: rgba(230,126,34,0.18);
+    /* category CSS vars injected dynamically — see injectCatCSS() */
   }
 
   html, body { height: 100%; }
@@ -95,9 +88,14 @@
   .today-btn { font-size: 10px; padding: 7px 11px; }
 
   /* ── LEGEND ── */
+  .legend-bar {
+    display: flex; align-items: center;
+    border-bottom: 1px solid var(--border);
+    background: var(--panel); position: relative; z-index: 20;
+  }
   .legend {
-    display: flex; gap: 14px; padding: 8px 16px; border-bottom: 1px solid var(--border);
-    overflow-x: auto; background: var(--panel); position: relative; z-index: 20; scrollbar-width: none;
+    display: flex; gap: 14px; padding: 8px 16px;
+    overflow-x: auto; flex: 1; scrollbar-width: none;
   }
   .legend::-webkit-scrollbar { display: none; }
   .legend-item { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
@@ -173,11 +171,8 @@
   .event.compact .ev-title { font-size: 11px; }
 
   .cat-energia    { border-left-color: var(--c-energia); background: var(--c-energia-bg); }
-  .cat-manutencao { border-left-color: var(--c-manutencao); background: var(--c-manutencao-bg); }
   .cat-crescimento{ border-left-color: var(--c-crescimento); background: var(--c-crescimento-bg); }
   .cat-leilao     { border-left-color: var(--c-leilao); background: var(--c-leilao-bg); }
-  .cat-networking { border-left-color: var(--c-networking); background: var(--c-networking-bg); }
-  .cat-imprevisto { border-left-color: var(--c-imprevisto); background: var(--c-imprevisto-bg); border-left-style: dashed; }
   .cat-pessoal    { border-left-color: var(--c-pessoal); background: var(--c-pessoal-bg); }
   .cat-conteudo   { border-left-color: var(--c-conteudo); background: var(--c-conteudo-bg); }
   /* Refeições — sem categoria, visual neutro */
@@ -820,7 +815,46 @@
     padding: 6px 10px; background: rgba(201,168,76,0.06); border-radius: 4px;
     border-left: 2px solid rgba(201,168,76,0.4); line-height: 1.5;
   }
+
+  /* ════════ CATEGORY EDITOR ════════ */
+  .cat-editor-row {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--panel2); border: 1px solid var(--border);
+    border-radius: 6px; padding: 8px 10px;
+  }
+  /* Use #catEditorList to beat .modal input specificity */
+  #catEditorList input[type="color"].cat-color-swatch {
+    width: 32px; height: 32px; border-radius: 4px;
+    border: 2px solid rgba(255,255,255,0.2) !important;
+    padding: 2px !important; cursor: pointer; flex-shrink: 0;
+    background: transparent !important; transition: border-color 0.15s;
+  }
+  #catEditorList input[type="color"].cat-color-swatch:hover { border-color: var(--gold) !important; }
+  #catEditorList input[type="text"].cat-name-input {
+    flex: 1; background: transparent !important;
+    border: none !important; outline: none !important;
+    color: var(--white) !important; font-family: 'Sora', sans-serif;
+    font-size: 13px !important; font-weight: 500;
+    padding: 0 !important; width: auto !important;
+  }
+  #catEditorList input[type="text"].cat-name-input::placeholder { color: rgba(255,255,255,0.3); }
+  .cat-del-btn {
+    background: transparent; border: none; color: var(--gray-light);
+    font-size: 16px; cursor: pointer; padding: 0 4px; line-height: 1;
+    transition: color 0.15s;
+  }
+  .cat-del-btn:hover { color: #e74c3c; }
+  .btn-edit-cats {
+    font-family: 'Sora', sans-serif; font-size: 10px; font-weight: 500;
+    letter-spacing: 0.07em; text-transform: uppercase;
+    color: var(--gray-light); background: transparent;
+    border: 1px solid rgba(255,255,255,0.12); border-radius: 3px;
+    padding: 4px 9px; cursor: pointer; transition: all 0.2s;
+    white-space: nowrap; flex-shrink: 0; margin-left: 6px;
+  }
+  .btn-edit-cats:hover { color: var(--gold); border-color: rgba(201,168,76,0.4); }
 </style>
+  <style id="dynCatCSS"></style>
   <!-- Firebase SDKs v10 compat -->
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
@@ -870,7 +904,20 @@
     </div>
   </div>
 
-  <div class="legend" id="legend"></div>
+  <div class="legend-bar"><div class="legend" id="legend"></div><button class="btn-edit-cats" id="editCatsBtn" title="Editar categorias">✏ Categorias</button></div>
+  <!-- category editor modal -->
+  <div class="modal-overlay" id="catEditorOverlay">
+    <div class="modal" style="max-width:400px;width:100%;">
+      <h3>Gerenciar Categorias</h3>
+      <p style="font-size:11px;color:var(--gray-light);margin-bottom:14px;">Clique na cor para alterar · edite o nome · ✕ para excluir</p>
+      <div id="catEditorList"></div>
+      <button class="btn" id="catAddBtn" style="width:100%;text-align:center;margin-top:10px;">+ Nova Categoria</button>
+      <div class="modal-actions" style="margin-top:16px;">
+        <button class="btn" id="catCancelBtn">Cancelar</button>
+        <button class="btn primary" id="catSaveBtn">Salvar</button>
+      </div>
+    </div>
+  </div>
 
   <!-- METAS DA SEMANA -->
   <div class="metas-wrap" id="metasWrap">
@@ -994,15 +1041,7 @@
       <label>Título</label>
       <input type="text" id="mTitle">
       <label>Categoria</label>
-      <select id="mCat">
-        <option value="energia">Energia</option>
-        <option value="manutencao">Manutenção</option>
-        <option value="crescimento">Crescimento</option>
-        <option value="leilao">Leilão</option>
-        <option value="networking">Networking</option>
-        <option value="pessoal">Pessoal</option>
-        <option value="imprevisto">Imprevisto</option>
-      </select>
+      <select id="mCat"><!-- options injected by JS --></select>
       <label>Projeto / nota</label>
       <input type="text" id="mProj">
       <label>Data</label>
@@ -1065,7 +1104,85 @@ const HOUR_H = parseInt(getComputedStyle(document.documentElement).getPropertyVa
 const TOTAL_H = DAY_END - DAY_START;
 const MEAL_TITLES = ['café','café da manhã','café rápido','janta','almoço','almoco'];
 function isMeal(ev){ return MEAL_TITLES.some(m=>ev.t.toLowerCase().startsWith(m)); }
-const CAT_LABELS = { energia:'Energia', manutencao:'Manutenção', crescimento:'Crescimento', leilao:'Leilão', networking:'Networking', pessoal:'Pessoal', imprevisto:'Imprevisto', conteudo:'Conteúdo' };
+// ───────────── CATEGORIAS DINÂMICAS ─────────────
+// Estrutura: { id: { label, color } }
+// 'id' é gerado como slug (lowercase, sem espaços) — usado como classe CSS e valor de ev.c
+const DEFAULT_CATEGORIES = [
+  { id:'energia',    label:'Energia',           color:'#36a866' },
+  { id:'networking', label:'Networking',         color:'#a05bc4' },
+  { id:'manutencao', label:'H2 Manutenção',      color:'#3d86c6' },
+  { id:'crescimento',label:'H2 Crescimento',     color:'#c9a84c' },
+  { id:'leilao',     label:'Carros/Leilões',     color:'#d0473b' },
+  { id:'pessoal',    label:'Pessoal/Domésticas', color:'#9b59b6' },
+  { id:'imprevisto', label:'Imprevisto',         color:'#6a6a6a' },
+  { id:'conteudo',   label:'Conteúdo',           color:'#e67e22' },
+];
+
+let userCategories = null; // loaded from storage
+
+function loadCategories() {
+  try {
+    const raw = localStorage.getItem('agendaCats_v1');
+    if (raw) { userCategories = JSON.parse(raw); return; }
+  } catch(e) {}
+  // First run: use defaults
+  userCategories = DEFAULT_CATEGORIES.map(c => ({...c}));
+  saveCategories();
+}
+
+function saveCategories() {
+  try { localStorage.setItem('agendaCats_v1', JSON.stringify(userCategories)); } catch(e) {}
+}
+
+// Returns { id: label } object — used wherever CAT_LABELS was used
+function getCatLabels() {
+  const obj = {};
+  (userCategories || DEFAULT_CATEGORIES).forEach(c => { obj[c.id] = c.label; });
+  return obj;
+}
+
+// Proxy: CAT_LABELS used in many places — make it a live getter
+const CAT_LABELS_PROXY = new Proxy({}, {
+  get(_, prop) { return getCatLabels()[prop]; },
+  ownKeys(_) { return Object.keys(getCatLabels()); },
+  has(_, prop) { return prop in getCatLabels(); },
+  getOwnPropertyDescriptor(_, prop) {
+    const v = getCatLabels()[prop];
+    return v !== undefined ? { value: v, enumerable: true, configurable: true, writable: false } : undefined;
+  }
+});
+// Keep the name CAT_LABELS working everywhere
+const CAT_LABELS = CAT_LABELS_PROXY;
+
+// Inject CSS for all dynamic categories into #dynCatCSS
+function injectCatCSS() {
+  const el = document.getElementById('dynCatCSS');
+  if (!el) return;
+  const cats = userCategories || DEFAULT_CATEGORIES;
+  let css = '';
+  cats.forEach(c => {
+    const hex = c.color;
+    // Convert hex to rgba bg (18% opacity)
+    const r = parseInt(hex.slice(1,3),16);
+    const g = parseInt(hex.slice(3,5),16);
+    const b = parseInt(hex.slice(5,7),16);
+    css += `:root { --c-${c.id}: ${hex}; --c-${c.id}-bg: rgba(${r},${g},${b},0.18); }
+`;
+    css += `.cat-${c.id} { border-left-color: var(--c-${c.id}); background: var(--c-${c.id}-bg); }
+`;
+  });
+  el.textContent = css;
+}
+
+// Rebuild the mCat select options
+function rebuildCatSelect() {
+  const sel = document.getElementById('mCat');
+  if (!sel) return;
+  const cats = userCategories || DEFAULT_CATEGORIES;
+  sel.innerHTML = cats.map(c =>
+    `<option value="${c.id}">${c.label}</option>`
+  ).join('');
+}
 const DOW_PT = ['DOM','SEG','TER','QUA','QUI','SEX','SÁB'];
 const MONTHS_PT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 
@@ -1730,9 +1847,9 @@ const navLabel=document.getElementById('navLabel');
 // ───────────── LEGEND ─────────────
 function buildLegend(){
   legend.innerHTML='';
-  Object.keys(CAT_LABELS).forEach(c=>{
+  (userCategories || DEFAULT_CATEGORIES).forEach(c=>{
     const item=document.createElement('div'); item.className='legend-item';
-    item.innerHTML=`<span class="legend-dot" style="background:var(--c-${c})"></span><span>${CAT_LABELS[c]}</span>`;
+    item.innerHTML=`<span class="legend-dot" style="background:${c.color}"></span><span>${c.label}</span>`;
     legend.appendChild(item);
   });
 }
@@ -1802,7 +1919,8 @@ function renderEvents(){
     dayEvents.forEach(ev=>{
       const lay=layout[ev.id]||{col:0,ncols:1};
       const el=document.createElement('div');
-      el.className=`event ${isMeal(ev)?'cat-refeicao':'cat-'+ev.c}`+(ev.done?' done-ev':'')+(ev.id===selectedId?' selected':'');
+      const catExists = (userCategories||DEFAULT_CATEGORIES).some(c=>c.id===ev.c);
+      el.className=`event ${isMeal(ev)?'cat-refeicao':('cat-'+(catExists?ev.c:'pessoal'))}`+(ev.done?' done-ev':'')+(ev.id===selectedId?' selected':'');
       if(ev.dur<=0.75) el.classList.add('compact');
       el.dataset.id=ev.id;
       el.style.top=hourToY(ev.s)+'px';
@@ -1980,6 +2098,7 @@ gridBody.addEventListener('mousedown',e=>{
 const overlay=document.getElementById('modalOverlay');
 let editingId=null;
 function openModal(ev, dateStr, startH){
+  rebuildCatSelect();  // ensure options reflect current categories
   editingId=ev?ev.id:null;
   document.getElementById('modalTitle').textContent=ev?'Editar Compromisso':'Novo Compromisso';
   document.getElementById('mTitle').value=ev?ev.t:'';
@@ -3366,9 +3485,125 @@ function saveMeta(){
   } catch(e) { /* localStorage indisponível — sem problema, memStore será usado */ }
 })();
 
+
+// ───────────── CATEGORY EDITOR ─────────────
+function openCatEditor() {
+  const overlay = document.getElementById('catEditorOverlay');
+  const list = document.getElementById('catEditorList');
+  // Clone current categories for editing
+  window._catEditDraft = (userCategories || DEFAULT_CATEGORIES).map(c => ({...c}));
+  renderCatEditorList();
+  overlay.classList.add('open');
+}
+
+function closeCatEditor() {
+  document.getElementById('catEditorOverlay').classList.remove('open');
+}
+
+function renderCatEditorList() {
+  const list = document.getElementById('catEditorList');
+  list.innerHTML = '';
+  list.style.cssText = 'display:flex;flex-direction:column;gap:6px;max-height:340px;overflow-y:auto;';
+
+  window._catEditDraft.forEach((c, idx) => {
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;align-items:center;gap:10px;background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:8px 10px;';
+
+    // Color picker — rendered as a colored square button
+    const colorBtn = document.createElement('label');
+    colorBtn.style.cssText = `width:26px;height:26px;border-radius:4px;background:${c.color};cursor:pointer;flex-shrink:0;border:2px solid rgba(255,255,255,0.25);display:block;`;
+    colorBtn.title = 'Alterar cor';
+    const colorInput = document.createElement('input');
+    colorInput.type = 'color';
+    colorInput.value = c.color;
+    colorInput.style.cssText = 'position:absolute;opacity:0;width:0;height:0;';
+    colorInput.dataset.idx = idx;
+    colorInput.addEventListener('input', e => {
+      const i = parseInt(e.target.dataset.idx);
+      window._catEditDraft[i].color = e.target.value;
+      e.target.parentElement.style.background = e.target.value;
+    });
+    colorBtn.appendChild(colorInput);
+
+    // Name input
+    const nameInput = document.createElement('input');
+    nameInput.type = 'text';
+    nameInput.value = c.label;
+    nameInput.maxLength = 32;
+    nameInput.placeholder = 'Nome da categoria';
+    nameInput.dataset.idx = idx;
+    nameInput.style.cssText = 'flex:1;background:transparent;border:none;outline:none;color:#f4f1eb;font-family:Sora,sans-serif;font-size:13px;font-weight:500;padding:0;min-width:0;';
+    nameInput.addEventListener('input', e => {
+      window._catEditDraft[parseInt(e.target.dataset.idx)].label = e.target.value;
+    });
+
+    // Delete button
+    const delBtn = document.createElement('button');
+    delBtn.textContent = '✕';
+    delBtn.dataset.idx = idx;
+    delBtn.style.cssText = 'background:transparent;border:none;color:#888;font-size:15px;cursor:pointer;padding:0 2px;line-height:1;flex-shrink:0;';
+    delBtn.title = 'Excluir categoria';
+    delBtn.addEventListener('mouseenter', () => { delBtn.style.color = '#e74c3c'; });
+    delBtn.addEventListener('mouseleave', () => { delBtn.style.color = '#888'; });
+    delBtn.addEventListener('click', e => {
+      const i = parseInt(e.target.dataset.idx);
+      if (window._catEditDraft.length <= 1) { toast('Precisa ter ao menos 1 categoria'); return; }
+      window._catEditDraft.splice(i, 1);
+      renderCatEditorList();
+    });
+
+    row.appendChild(colorBtn);
+    row.appendChild(nameInput);
+    row.appendChild(delBtn);
+    list.appendChild(row);
+  });
+}
+
+function saveCatEditor() {
+  const draft = window._catEditDraft;
+  // Validate: all must have a label
+  for (const c of draft) {
+    if (!c.label.trim()) { toast('Preencha o nome de todas as categorias'); return; }
+  }
+  userCategories = draft.map(c => ({
+    ...c,
+    label: c.label.trim()
+  }));
+  saveCategories();
+  injectCatCSS();
+  buildLegend();
+  rebuildCatSelect();
+  renderEvents();
+  renderDashboard();
+  closeCatEditor();
+  toast('Categorias salvas');
+}
+
+function addCatRow() {
+  // Generate a unique id
+  const base = 'cat' + Date.now();
+  window._catEditDraft.push({ id: base, label: '', color: '#888888' });
+  renderCatEditorList();
+  // Focus the new input
+  const list = document.getElementById('catEditorList');
+  const inputs = list.querySelectorAll('.cat-name-input');
+  if (inputs.length) inputs[inputs.length - 1].focus();
+}
+
+document.getElementById('editCatsBtn').addEventListener('click', openCatEditor);
+document.getElementById('catCancelBtn').addEventListener('click', closeCatEditor);
+document.getElementById('catSaveBtn').addEventListener('click', saveCatEditor);
+document.getElementById('catAddBtn').addEventListener('click', addCatRow);
+document.getElementById('catEditorOverlay').addEventListener('click', e => {
+  if (e.target === document.getElementById('catEditorOverlay')) closeCatEditor();
+});
+
 // ───────────── INIT ─────────────
+loadCategories();   // must be before loadAll (events reference category ids)
+injectCatCSS();     // inject CSS vars + .cat-* classes
 loadAll();
 buildLegend();
+rebuildCatSelect(); // populate mCat select
 syncView();
 refreshNotesUI();
 initSplitter();
